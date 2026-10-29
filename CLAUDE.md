@@ -12,6 +12,7 @@ Porchlight is an animated story series starring the Friendzy cast (Riot 🦊, Ro
 | Animation fixes done + every episode JSON field | `ANIMATION_TODO.md` |
 | Gemini set-painting prompts | `GEMINI_PROMPTS.md` |
 | Depth layers for painted sets (tool + how-to) | `DEPTH_LAYERS.md`; tool `Blender/tools/depth_layers.py` |
+| Skills for this project (how to do each job) | `.claude/skills/`: write-episode, render-episode, new-set, new-character, new-move, blender-5-api, pipeline-debug, gemini-art, set-tools |
 | Folder overview | `README.md` |
 | Rejected earlier idea (reference only) | `archive/old-series-idea/` (local folder, not in git) |
 | Animation pipeline (shared with the Friendzy Shorts) | `~/Desktop/Friendzy/Blender/` — start with `doctor.py` and `README.md` there |
