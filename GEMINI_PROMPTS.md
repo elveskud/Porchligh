@@ -220,7 +220,7 @@ Walk style per character (paste in place of `<WALK STYLE>`):
 
 ### E3. Poses → `poses_<name>.jpg`
 ```
-Image 1 shows <NAME>, a character from a 2D cartoon series (the <fox / bear / bunny / raccoon>). Draw him, his exact design, colours, clothes and proportions, seen from the FRONT like in image 1.
+Image 1 shows <NAME>, a character from a 2D cartoon series (the <fox / bear / bunny / raccoon>). Draw him, keeping his exact design, colours, clothes and proportions, seen from the FRONT like in image 1.
 A pose sheet, 8 poses in two rows, all the same scale, each one separate:
 1) lying back on a beanbag, relaxed, arms behind his head
 2) sitting cross-legged on the ground
