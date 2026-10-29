@@ -80,4 +80,10 @@ same folders), or `git apply blender-fixes.patch` inside the Blender folder. The
 - **Colour match** across sets in the same light, **`[silhouette]`** at sunset, **match cuts** between places.
 - Reference sheets: `refs/side_*.png`, `refs/poses_*.png`, `refs/hands.png` (`sideref.py`, `poseref.py`, `handref.py`).
 
+## Depth layers
+- `tools/depth_layers.py`: splits a set painting into far / mid / near layers, from Gemini F3 pictures (aligned
+  automatically, cut from the painting's own pixels) or from two cut heights (`--bands`). Writes a check sheet and a
+  parallax GIF. Guide: Porchlight `DEPTH_LAYERS.md`.
+- With `act`, sets with layers slide them at different speeds as the camera moves, and push-ins grow near things more.
+
 Everything new is opt-in from the episode JSON; the Shorts and Episode 1 behave as before (apart from the fixes).

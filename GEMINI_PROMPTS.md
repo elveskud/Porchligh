@@ -274,6 +274,8 @@ gradient. Same size as image 1. NO text.
 ```
 
 ### F3. Depth layers (for camera moves through the set) → `<set>_far.jpg`, `<set>_mid.png`, `<set>_near.png`
+After saving them, run `python3 Blender/tools/depth_layers.py <set>` and check its sheet and GIF (`DEPTH_LAYERS.md`).
+In every prompt add: "Exactly the same size, framing and position as image 1. Do not move, resize or redraw anything."
 Do this for `lake_day_v3.jpg` first; if it works, the other sets. Three prompts, image 1 = the set painting:
 ```
 Redraw image 1 exactly, same size and style, showing ONLY the far background: <the sky, clouds, far hills and the

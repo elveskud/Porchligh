@@ -467,19 +467,20 @@ index 0000000..a8192fb
 +            return None
 +    return [(c["start"], c["value"]) for c in json.load(open(cache))["mouthCues"]]
 diff --git a/characters/locations.py b/characters/locations.py
-index f7e5724..a8b494a 100644
+index f7e5724..a7a5605 100644
 --- a/characters/locations.py
 +++ b/characters/locations.py
-@@ -30,6 +30,8 @@ class Location:
+@@ -30,6 +30,9 @@ class Location:
  
  
  LIVE = []
 +PARALLAX_FRONTS = False  # episodes with "act": foreground front pieces get depth parallax
++PARALLAX_LAYERS = False  # episodes with "act": painted sets with depth layers (tools/depth_layers.py) use them
 +CAST_LIGHT_MAX = 1.0  # cap on a set's light on the cast (episodes with "act" keep night faces readable: 0.35)
  
  
  # ---------- ambient light: the set lights the cast, and that light is alive ----------
-@@ -142,6 +144,8 @@ def ambient(f0, f1):
+@@ -142,6 +145,8 @@ def ambient(f0, f1):
          if n in PLATE_SETS:  # painted sets: a living set, soft contact shadows, the set's light on the cast
              plate_life(L, f0, f1)
              for c in getattr(L, "cast", ()):
@@ -488,7 +489,7 @@ index f7e5724..a8b494a 100644
                  if c.extras.get("spot_kind", "stand") == "stand":  # sitters are on furniture, not the floor
                      ground_shadow(c, *PLATE_SETS[n].get("shadow", (0.1, 1.0, 0.0)))
                  else:  # sitting: the cushion dips under them (a soft dark hollow around the hips)
-@@ -149,7 +153,10 @@ def ambient(f0, f1):
+@@ -149,7 +154,10 @@ def ambient(f0, f1):
                      for i in range(6):
                          k = 1 - i / 6
                          light(f"{c.name}_dip{i}", ell(0, 0, 2.3 * k, 0.55 * k, n=40), "#2A1408", 0.07, g, i * 1e-3)
@@ -500,7 +501,7 @@ index f7e5724..a8b494a 100644
                  if c.extras.get("spot_depth"):  # air between us and them: further back = a touch lighter and bluer
                      light_cast(c, PLATE_SETS[n].get("haze", "#CFE0F2"), 0.0025 * c.extras["spot_depth"])
                  x = c.root.location.x - L.root.location.x
-@@ -916,7 +923,9 @@ def _widen_party_room(L, half):
+@@ -916,7 +924,9 @@ def _widen_party_room(L, half):
  # ---------- Porchlight: painted sets (Gemini paintings upscaled to 4K, in the cast's style) ----------
  # Each painting is one flat background plate; the cast stands on its ground line. 16:9 only (episodes are horizontal).
  # Spec: painting file, ground line and standing spots in the painting's own 1024x572 pixels, cast scale, light tint.
@@ -511,7 +512,7 @@ index f7e5724..a8b494a 100644
  PLATE_SETS = {
      # cast: the set's light on the characters (colour, how much of it); night is blue, lamps and sunset are warm
      "lake":         dict(img="lake_day_v3", ground=520, xs=(250, 420, 600, 780), s=0.48, tint=("#FFB560", 0.06), cast=("#FFD9A0", 0.06), shadow=(0.11, 1.0, 0.0)),
-@@ -966,7 +975,10 @@ def plate(name):
+@@ -966,7 +976,25 @@ def plate(name):
      L = PlateLocation(name)
      h = PLATE_O * PLATE_BLEED
      ppu = 2160 / h
@@ -519,11 +520,34 @@ index f7e5724..a8b494a 100644
 +    plate_png = os.path.join(PLATE_DIR, sp["img"] + ".png")
 +    if not os.path.exists(plate_png):
 +        raise SystemExit(f"painted set {name!r}: {plate_png} not found (set PORCHLIGHT_DIR to the Porchlight folder)")
-+    img(f"{name}_plate", plate_png, L.root, (1920, 1080), ppu, -9.5, loc=(0, PLATE_O / 2))
++    spec_path = os.path.join(PLATE_DIR, sp["img"] + ".json")
++    spec = json.load(open(spec_path)) if os.path.exists(spec_path) else {}
++    lay = spec.get("layers") if PARALLAX_LAYERS else None
++    lay_png = {k: os.path.join(PLATE_DIR, "layers", f"{sp['img']}_{k}.png") for k in ("far", "mid", "near")}
++    if lay and all(os.path.exists(p_) for p_ in lay_png.values()):
++        # depth layers (Blender/tools/depth_layers.py): the far layer trails the camera, the mid layer (the ground
++        # the cast stands on) stays put, the near layer runs ahead; a push-in grows them by different amounts too
++        far_ = img(f"{name}_plate", lay_png["far"], L.root, (1920, 1080), ppu, -9.5, loc=(0, PLATE_O / 2))
++        img(f"{name}_mid", lay_png["mid"], L.root, (1920, 1080), ppu, -9.38, loc=(0, PLATE_O / 2))
++        near_ = img(f"{name}_near", lay_png["near"], L.root, (1920, 1080), ppu, -9.36 if lay.get("near_behind") else 9.1,
++                    loc=(0, PLATE_O / 2))
++        for o_, k_ in ((far_, "far"), (near_, "near")):
++            o_["depth_zoom"] = 1
++            L.parallax.append((o_, float(lay.get(k_, 0.82 if k_ == "far" else 1.22))))
++    else:
++        img(f"{name}_plate", plate_png, L.root, (1920, 1080), ppu, -9.5, loc=(0, PLATE_O / 2))
      s = sp["s"]
      # depth staging: spots step back alternately (painting px up from the ground line), smaller and further back
      depth = sp.get("depth", (0, 30, 8, 38))
-@@ -986,6 +998,8 @@ def plate(name):
+@@ -978,14 +1006,14 @@ def plate(name):
+         L.seats.append((plate_xy(name, px, 0)[0], plate_xy(name, 0, sp["ground"] - dy)[1] + 3.2 * k, k, 7.0 - dy / 10))
+     L.spot_kind = ["stand"] * len(L.seats)
+     L.spot_names = {f"s{i}": i for i in range(len(L.seats))}
+-    spec_path = os.path.join(PLATE_DIR, sp["img"] + ".json")
+-    spec = json.load(open(spec_path)) if os.path.exists(spec_path) else {}
+     for spot, (px, py, kind, sc_, z) in spec.get("spots", {}).items():
+         x, y = plate_xy(name, px, py)
+         L.spot_names[spot] = len(L.seats)
          L.seats.append((x, y + (3.2 * sc_ if kind == "stand" else 0.0), sc_, z))
          L.spot_kind.append(kind)
      L.life = spec.get("life", {})
@@ -532,7 +556,7 @@ index f7e5724..a8b494a 100644
      L.lamps = []
      for px, py, col, r_px, strength in spec.get("lamps", []):  # [px, py, colour, radius in painting px, strength]
          lx, ly = plate_xy(name, px, py)
-@@ -994,7 +1008,9 @@ def plate(name):
+@@ -994,7 +1022,9 @@ def plate(name):
      for fr in spec.get("fronts", []):
          path = os.path.join(PLATE_DIR, "..", "fronts", f"{sp['img']}_{fr['name']}.png")
          if os.path.exists(path):  # made by Porchlight/tools/fronts.py
@@ -543,7 +567,7 @@ index f7e5724..a8b494a 100644
      L.seat_half = BODY_HALF * s / 0.72
      L.cam = L.cam_h = (0.0, PLATE_O / 2, PLATE_O)
      light(f"{name}_tint", rect(-60, -30, 60, 40), sp["tint"][0], sp["tint"][1], L.root, 15, smooth=0)
-@@ -1074,7 +1090,7 @@ def plate_life(L, f0, f1, step=2):
+@@ -1074,7 +1104,7 @@ def plate_life(L, f0, f1, step=2):
              stroke(f"{name}_bird{i}_s", [(-0.28, 0.12), (-0.1, 0.0), (0.0, -0.04), (0.1, 0.0), (0.28, 0.12)], 0.05, "#2A2A3A", w, 0.0)
              by, per, ph = rnd.uniform(min(y0, y1), max(y0, y1)), rnd.uniform(300, 520), rnd.uniform(0, 1)
              for fr in frames:
@@ -552,7 +576,7 @@ index f7e5724..a8b494a 100644
                  g.location.x = x0 + (x1 - x0) * u
                  g.location.y = by + 0.4 * math.sin(u * 9 + i)
                  w.scale.y = 0.4 + 0.6 * abs(math.sin(fr * 0.5 + i))  # wing flap
-@@ -1115,7 +1131,7 @@ def plate_life(L, f0, f1, step=2):
+@@ -1115,7 +1145,7 @@ def plate_life(L, f0, f1, step=2):
              shape(f"{name}_leaf{i}_s", [(0, 0.12), (0.09, 0), (0, -0.12, "s"), (-0.09, 0)], lv.get("color", "#6A9A3A"), g, 0.0, ol=0.02)
              bx, per, ph = rnd.uniform(x0, x1), rnd.uniform(160, 260), rnd.uniform(0, 1)
              for fr in frames:
@@ -561,7 +585,7 @@ index f7e5724..a8b494a 100644
                  g.location.x = bx + 1.5 * u + 0.4 * math.sin(u * 12)
                  g.location.y = max(y0, y1) - (abs(y1 - y0)) * u
                  g.rotation_euler.z = math.sin(u * 10 + i) * 1.2
-@@ -1140,6 +1156,188 @@ def plate_life(L, f0, f1, step=2):
+@@ -1140,6 +1170,188 @@ def plate_life(L, f0, f1, step=2):
          for fr in frames:
              o.location.x = x0_ + 0.04 * math.sin(fr * 0.05 + ph) + 0.015 * _wobble(fr, len(fname), 0.2)
              o.keyframe_insert("location", index=0, frame=fr)
@@ -2554,7 +2578,7 @@ index 0000000..46b536c
 +            out.append(f"  {fr // FPS // 60}:{fr // FPS % 60:02d}.{fr % FPS:02d} {lt}  {spec:24s} {why}{flag}")
 +    return "\n".join(out) + "\n"
 diff --git a/templates/episode_scene.py b/templates/episode_scene.py
-index 93468b7..64fd5f2 100644
+index 93468b7..35ec67f 100644
 --- a/templates/episode_scene.py
 +++ b/templates/episode_scene.py
 @@ -1,12 +1,12 @@
@@ -2572,7 +2596,7 @@ index 93468b7..64fd5f2 100644
  import episode_script as S
  import features
  
-@@ -18,6 +18,10 @@ vo = lambda i: os.path.join(OUT, "vo", f"{i}.wav")
+@@ -18,6 +18,11 @@ vo = lambda i: os.path.join(OUT, "vo", f"{i}.wav")
  phrase_beats = lambda ev: [ev["start"] + e for e in motion.phrase_ends(vo(ev["id"]))]
  F = layout.from_cfg(cfg)
  V = F.vertical
@@ -2580,10 +2604,11 @@ index 93468b7..64fd5f2 100644
 +motion.RICH = ACT
 +locations.CAST_LIGHT_MAX = 0.35 if ACT else 1.0  # night sets never tint faces past readable
 +locations.PARALLAX_FRONTS = ACT
++locations.PARALLAX_LAYERS = ACT
  
  # a render job only needs its own frames baked (plus a warm-up so springs and idle settle the same way)
  _rng = os.environ.get("FRAME_RANGE")
-@@ -62,10 +66,24 @@ for B in C["beats"]:
+@@ -62,10 +67,24 @@ for B in C["beats"]:
  
  def seat_of(B, who):
      defaults = S.SEATS["car" if B["location"] == "car" else "default"]
@@ -2612,7 +2637,7 @@ index 93468b7..64fd5f2 100644
      if isinstance(v, str):  # painted sets: a named spot ("sofa_l", "step", "tower", ...)
          L = locs[B["location"]][0]
          if v not in getattr(L, "spot_names", {}):
-@@ -74,9 +92,46 @@ def seat_of(B, who):
+@@ -74,9 +93,46 @@ def seat_of(B, who):
      return v
  
  
@@ -2661,7 +2686,7 @@ index 93468b7..64fd5f2 100644
  
  
  def eye_y(B, who="riot"):
-@@ -85,17 +140,44 @@ def eye_y(B, who="riot"):
+@@ -85,17 +141,44 @@ def eye_y(B, who="riot"):
      return hip + 5.4 * s
  
  
@@ -2707,7 +2732,7 @@ index 93468b7..64fd5f2 100644
              c.root.location.x += off
              holder = empty(f"park_{who}_{len(inst)}", None, (0, 0), 0)
              c.root.parent = holder
-@@ -142,6 +224,132 @@ def A(B, who):
+@@ -142,6 +225,132 @@ def A(B, who):
      return B["_inst"][who]["a"]
  
  
@@ -2840,7 +2865,7 @@ index 93468b7..64fd5f2 100644
  def busy(B, who, f0, f1):
      B["_inst"][who]["busy"].append((f0, f1))
  
-@@ -150,12 +358,25 @@ def is_busy(B, who, f0, f1):
+@@ -150,12 +359,25 @@ def is_busy(B, who, f0, f1):
      return any(a < f1 and f0 < b for a, b in B["_inst"][who]["busy"])
  
  
@@ -2869,7 +2894,7 @@ index 93468b7..64fd5f2 100644
      keys = [(f, 8, "linear")]
      for i in range(n):
          keys += [(f + 6 + i * 10, -128, "back"), (f + 11 + i * 10, -95, "smooth")]
-@@ -170,7 +391,7 @@ def stare(B, who, f, f_end):
+@@ -170,7 +392,7 @@ def stare(B, who, f, f_end):
      a.look(f, 0.0, 3)
      a.look_up(f, 0.0, 3)
      a.expr(f, "suspicious")
@@ -2878,7 +2903,7 @@ index 93468b7..64fd5f2 100644
  
  
  def dust(B, who, f):
-@@ -179,7 +400,7 @@ def dust(B, who, f):
+@@ -179,7 +401,7 @@ def dust(B, who, f):
      s0 = c.root.scale.x
      col = {"sand": "#F2DDB8", "stone": "#C8C8D0", "wood": "#D8C8B0"}.get(S.SURFACE.get(B["location"]), "#E0D8C8")
      for k, dx in enumerate((-1.3, -0.5, 0.5, 1.3)):
@@ -2887,7 +2912,7 @@ index 93468b7..64fd5f2 100644
          shape(f"dust_{who}_{f}_{k}_s", ell(0, 0, 0.45 * s0, 0.3 * s0, n=16), col, g, 0.0, ol=0)
          set_visible(g, False, 0)
          set_visible(g, True, f)
-@@ -187,81 +408,381 @@ def dust(B, who, f):
+@@ -187,81 +409,381 @@ def dust(B, who, f):
          for fr, sc_, dy in ((f, 0.3, 0.0), (f + 6, 1.0, 0.25), (f + 13, 0.6, 0.45)):
              g.scale = (sc_, sc_, 1)
              g.location.y = c.root.location.y + (0.2 + dy) * s0 + dy
@@ -3287,7 +3312,7 @@ index 93468b7..64fd5f2 100644
      if B["location"] in locations.PLATE_SETS:  # painted sets: never let the frame run past the painting
          _, off, _ = locs[B["location"]]
          ph = locations.PLATE_O * locations.PLATE_BLEED
-@@ -273,7 +794,7 @@ def framing(B, spec, band=False):
+@@ -273,7 +795,7 @@ def framing(B, spec, band=False):
      return (x, y, o)
  
  
@@ -3296,7 +3321,7 @@ index 93468b7..64fd5f2 100644
      L, off, _ = locs[B["location"]]
      if spec == "wide" or not spec:
          x, y, o = L.cam if V else L.cam_h
-@@ -289,22 +810,29 @@ def _framing(B, spec, band=False):
+@@ -289,22 +811,29 @@ def _framing(B, spec, band=False):
          return (x + off, y, o)
      names = who.split(",")
      if kind == "ots" and len(names) == 2 and not V:  # over the shoulder: favour the 2nd, the 1st cut by the frame edge
@@ -3332,7 +3357,7 @@ index 93468b7..64fd5f2 100644
      return (x + off, y, o)
  
  
-@@ -339,8 +867,14 @@ def caption_at(name, body, f_in, f_out):
+@@ -339,8 +868,14 @@ def caption_at(name, body, f_in, f_out):
      return box
  
  
@@ -3349,7 +3374,7 @@ index 93468b7..64fd5f2 100644
      set_visible(card, False, 0)
      (motion.card_flip_in if flip else motion.pop_in)(card, f_in)
      motion.pop_out(card, f_out, 5)
-@@ -354,18 +888,183 @@ def head_xy(B, who, f):
+@@ -354,18 +889,183 @@ def head_xy(B, who, f):
  
  
  emote_jobs = []  # (B, who, kind, f_in, f_out): placed after the characters are baked
@@ -3535,7 +3560,7 @@ index 93468b7..64fd5f2 100644
          A(B, who).look(st, 0.0, 4)
          A(B, who).look_up(st, 0.0, 4)
      # on-screen text: the first beat's text is the hook (named "hook" for QA)
-@@ -406,54 +1105,110 @@ for bi, B in enumerate(C["beats"]):
+@@ -406,54 +1106,110 @@ for bi, B in enumerate(C["beats"]):
                  motion.pop_in(pl, ev["start"] - 6, 6)
                  motion.pop_out(pl, ev["end"] + 4, 4)
                  caption_at("prevtext", ev["previously"], ev["start"] - 4, ev["end"] + 6)
@@ -3664,7 +3689,7 @@ index 93468b7..64fd5f2 100644
                  I_ = B["_inst"][who]
                  s0 = I_["c"].root.scale.x
                  cx, _, co = framing(B, B["camera"])
-@@ -470,9 +1225,22 @@ for bi, B in enumerate(C["beats"]):
+@@ -470,9 +1226,22 @@ for bi, B in enumerate(C["beats"]):
                      set_visible(fp, False, 0)
                      set_visible(fp, True, f0_ + i * motion.STEP)
                      set_visible(fp, False, en)
@@ -3687,7 +3712,7 @@ index 93468b7..64fd5f2 100644
          for k, (who_, msg) in enumerate(B["chat"]):
              f_in = st + S.CHAT_IN + k * S.CHAT_EVERY
              col = CHAT_COL.get(who_.lower(), "#6A6A7A")
-@@ -480,7 +1248,8 @@ for bi, B in enumerate(C["beats"]):
+@@ -480,7 +1249,8 @@ for bi, B in enumerate(C["beats"]):
              cam_x = framing(B, B["camera"])[0]
              right = sum(seat_x(B, w) for w in B["cast"]) / max(1, len(B["cast"])) < cam_x  # bubbles go where the cast isn't
              bx = (18.4 - w_ * TS / 2) if right else (-18.4 + w_ * TS / 2)
@@ -3697,7 +3722,7 @@ index 93468b7..64fd5f2 100644
              bub = empty(f"chat{bi}_{k}", None, (0, 0), 0.5)
              shape(f"chat{bi}_{k}_bg", props.rrect4(-w_ / 2, -1.0, w_ / 2, 1.0, (0.55, 0.55, 0.15, 0.55)), "#FFFFFF", bub, 0.0, smooth=0)
              shape(f"chat{bi}_{k}_bar", props.rrect4(-w_ / 2, 0.2, w_ / 2, 1.0, (0.0, 0.55, 0.55, 0.0)), col, bub, 0.01, ol=0, smooth=0)
-@@ -489,7 +1258,27 @@ for bi, B in enumerate(C["beats"]):
+@@ -489,7 +1259,27 @@ for bi, B in enumerate(C["beats"]):
              on_hud(bub, (bx, by), TS)
              set_visible(bub, False, 0)
              motion.pop_in(bub, f_in, 6, 1.12, 3)
@@ -3726,7 +3751,7 @@ index 93468b7..64fd5f2 100644
      # transitions: "transition": "fade" fades in from black (a time jump); letterbox bars for cinematic beats
      if B.get("transition") == "fade" or B.get("letterbox"):
          if B.get("transition") == "fade":
-@@ -543,6 +1332,28 @@ for bi, B in enumerate(C["beats"]):
+@@ -543,6 +1333,28 @@ for bi, B in enumerate(C["beats"]):
              set_visible(o_, False, 0)
              set_visible(o_, True, st)
              set_visible(o_, False, en)
@@ -3755,7 +3780,7 @@ index 93468b7..64fd5f2 100644
      # set effects: a lamp switching on, a flashlight sweeping a dark room (painted sets; positions in painting px)
      for fx in B.get("fx", []):
          L_, off_, _ = locs[B["location"]]
-@@ -551,22 +1362,42 @@ for bi, B in enumerate(C["beats"]):
+@@ -551,22 +1363,42 @@ for bi, B in enumerate(C["beats"]):
              g = empty(f"lamp{bi}", None, pt(*fx["at_px"]), 9.0)
              glow(f"lamp{bi}_g", (0, 0), fx.get("r", 2.4), fx.get("r", 2.4), fx.get("color", "#FFC861"), 0.022, 40, g, 0.0)
              on = st + int(fx.get("at", 0.5) * S.FPS)
@@ -3801,7 +3826,7 @@ index 93468b7..64fd5f2 100644
              if fx.get("sub"):
                  sg = empty(f"title{bi}_sub", tg, (0, -2.6), 0.0)
                  props.outlined_text(f"title{bi}_sub_t", fx["sub"], 1.0, "#FFFFFF", sg, (0, 0), 0.0, 0.06)
-@@ -585,6 +1416,13 @@ for bi, B in enumerate(C["beats"]):
+@@ -585,6 +1417,13 @@ for bi, B in enumerate(C["beats"]):
              set_visible(cg, False, 0)
              motion.pop_in(cg, t0, 6)
              motion.pop_out(cg, t0 + int(fx.get("for", 2.0) * S.FPS), 5)
@@ -3815,7 +3840,7 @@ index 93468b7..64fd5f2 100644
          elif fx["type"] == "critter":  # a small animal from Porchlight/art/parts/critters, bobbing; ripples on water
              x_, y_ = pt(*fx["at_px"])
              g = empty(f"critter{bi}_{fx['piece']}", None, (x_, y_), fx.get("z", 3.0))
-@@ -593,7 +1431,7 @@ for bi, B in enumerate(C["beats"]):
+@@ -593,7 +1432,7 @@ for bi, B in enumerate(C["beats"]):
              pcs = {}
              w0_ = None
              for pc in dict.fromkeys([p_ for _, p_ in sched] + ([fx["blink"]] if fx.get("blink") else [])):
@@ -3824,7 +3849,7 @@ index 93468b7..64fd5f2 100644
                  im_ = bpy.data.images.get(path) or bpy.data.images.load(path)
                  w_, h_ = im_.size
                  w0_ = w0_ or w_  # every pose at the first pose's scale
-@@ -642,6 +1480,14 @@ for bi, B in enumerate(C["beats"]):
+@@ -642,6 +1481,14 @@ for bi, B in enumerate(C["beats"]):
              keys = [(st + int(t * S.FPS), pt(px, py)) for px, py, t in fx["path"]]
              beam = light(f"torch{bi}_beam", [(0, 0.06, "s"), (1, 0.6, "s"), (1, -0.6, "s"), (0, -0.06, "s")], "#FFE9A8", 0.16, g, 0.0, smooth=0)
              beam.location = (src[0], src[1], 0)
@@ -3839,7 +3864,7 @@ index 93468b7..64fd5f2 100644
              for fr in range(st, en + 1, 2):
                  i_ = max([k for k, (kf, _) in enumerate(keys) if kf <= fr] or [0])
                  (f0_, p0), (f1_, p1) = keys[i_], keys[min(i_ + 1, len(keys) - 1)]
-@@ -656,6 +1502,12 @@ for bi, B in enumerate(C["beats"]):
+@@ -656,6 +1503,12 @@ for bi, B in enumerate(C["beats"]):
                  spot.keyframe_insert("location", frame=fr)
                  beam.keyframe_insert("rotation_euler", index=2, frame=fr)
                  beam.keyframe_insert("scale", frame=fr)
@@ -3852,7 +3877,7 @@ index 93468b7..64fd5f2 100644
              set_visible(g, False, 0)
              set_visible(g, True, st + int(fx.get("on", 0.0) * S.FPS))
              set_visible(g, False, min(en, st + int(fx.get("off", 999) * S.FPS)))
-@@ -688,7 +1540,7 @@ for bi, B in enumerate(C["beats"]):
+@@ -688,7 +1541,7 @@ for bi, B in enumerate(C["beats"]):
          others = [w for w in B["cast"] if w != "riot"]
          if G["type"] in ("nhie", "mlt"):
              CA.cut(G["card_in"] - 2, framing(B, "wide", band=True))
@@ -3861,7 +3886,7 @@ index 93468b7..64fd5f2 100644
              motion.present(r, G["card_in"] - 2, hold=G["read_end"] - G["card_in"])
              if C.get("riot_phone"):  # he reads the card off his real phone: left paw brings it up, then down again
                  f0_, f1_ = G["card_in"] - 4, G["read_end"] + 8
-@@ -800,7 +1652,7 @@ for bi, B in enumerate(C["beats"]):
+@@ -800,7 +1653,7 @@ for bi, B in enumerate(C["beats"]):
          afters = [e for e in B["events"] if e["id"].startswith(f"{B['id']}_after")]
          for e in afters:  # follow-up lines: the camera goes to whoever speaks unless the line says otherwise
              speak(B, e)
@@ -3870,7 +3895,7 @@ index 93468b7..64fd5f2 100644
          if G["laughs"]:
              CA.cut(G["laugh"], framing(B, "wide"))
              for k, w in enumerate(["riot"] + others):
-@@ -819,21 +1671,28 @@ for bi, B in enumerate(C["beats"]):
+@@ -819,21 +1672,28 @@ for bi, B in enumerate(C["beats"]):
              CA.hud(props.word_captions(f"cap_{ev_['id']}", cam, motion.word_times(ev_["text"], vo(ev_["id"])), ev_["start"], y_px=1300)
                     if V else props.word_captions(f"cap_{ev_['id']}", cam, motion.word_times(ev_["text"], vo(ev_["id"])),
                                                   ev_["start"], fmt=F.fmt, y_frac=0.88 if S.SURFACE.get(B["location"]) and B["location"] in locations.PLATE_SETS else 0.8,
@@ -3907,8 +3932,26 @@ index 93468b7..64fd5f2 100644
  
  # ---------- ending ----------
  EX = -SPACING
-@@ -893,10 +1752,20 @@ for n, (L, off, base) in locs.items():
+@@ -887,16 +1747,37 @@ CA.bake(max(0, R0 - 2), min(END, R1 + 2))
+ for n, (L, off, base) in locs.items():
+     x0, y0, _ = L.cam if V else L.cam_h
+     for o, fac in L.parallax:
++        zoom = o.get("depth_zoom")  # depth layers: a push-in also grows near things more than far ones
++        s0_ = Vector(o.scale)
+         for fr in range(max(0, R0 - 2), min(END, R1 + 2) + 1):
+-            x, y, _ = CA._at(fr)
++            x, y, o_ = CA._at(fr)
+             here = abs(x - off) < SPACING / 2
              o.location = base[o] + (Vector(((x - off - x0) * (1 - fac), (y - y0) * (1 - fac), 0)) if here else Vector((0, 0, 0)))
++            if zoom and here:  # scale about the camera's centre (in the set's own space)
++                k = (locations.PLATE_O / max(0.5, o_)) ** (0.5 * (fac - 1))
++                cx_, cy_ = x - off, y
++                o.location.x, o.location.y = cx_ + (o.location.x - cx_) * k, cy_ + (o.location.y - cy_) * k
++                o.scale = (s0_.x * k, s0_.y * k, s0_.z)
++                o.keyframe_insert("scale", frame=fr)
++            elif zoom:
++                o.scale = s0_
++                o.keyframe_insert("scale", frame=fr)
              o.keyframe_insert("location", frame=fr)
  
 +# QA: each voiced line's middle frame and the speaker's head, so make.py can check faces after the render
@@ -5149,6 +5192,313 @@ index 670da5d..e52e7c5 100644
      img.convert("RGB").save(dst)
      print(dst)
      return dst
+diff --git a/tools/depth_layers.py b/tools/depth_layers.py
+new file mode 100644
+index 0000000..034cd6f
+--- /dev/null
++++ b/tools/depth_layers.py
+@@ -0,0 +1,301 @@
++#!/usr/bin/env python3
++"""Depth layers for a painted Porchlight set: split the 4K plate into far / mid / near layers, so the camera moves
++*through* the set (far things slide slower than the ground the cast stands on, near things faster).
++Full guide: Porchlight DEPTH_LAYERS.md. Needs only Python 3 with Pillow and numpy (doctor.py checks both).
++
++Two ways in:
++  A) From Gemini (best). F3 in GEMINI_PROMPTS.md makes three pictures of one set painting:
++       art/gemini/sets/<img>_far.jpg    the painting with everything near removed and the sky/hills painted in
++       art/gemini/sets/<img>_mid.png    only the middle ground (water, dock, beach), everything else pure magenta
++       art/gemini/sets/<img>_near.png   only the nearest things (grass, rocks at the bottom edge), the rest magenta
++     python3 depth_layers.py lake_day_v3
++  B) No Gemini pictures: cut the painting at two heights (painting px, 1024x572 space like every set JSON):
++     python3 depth_layers.py lake_day_v3 --bands 330,500     (above 330 = far, 330-500 = mid, below 500 = near)
++
++What it does (A): Gemini repaints, so its pictures are only trusted for *shapes*, never for colours. Each one is
++aligned to the plate (scale + shift search), the magenta is keyed out to a mask, and the layers are cut from the
++plate's own pixels with those masks. Gemini's pixels are used only where the plate has nothing: behind the mid
++layer (in the far layer) and behind the near layer (in the mid layer), colour-matched to the plate first.
++
++Writes art/hd/sets/layers/<img>_far.png, _mid.png, _near.png (RGBA, plate size), <img>_layers.png (a check sheet)
++and <img>_parallax.gif (a camera pan), and adds "layers" to art/hd/sets/<img>.json so episodes use them.
++"""
++import argparse, json, os, sys
++import numpy as np
++from PIL import Image, ImageFilter
++
++PORCHLIGHT = os.environ.get("PORCHLIGHT_DIR", os.path.expanduser("~/Desktop/Porchlight"))
++SETS = os.path.join(PORCHLIGHT, "art/hd/sets")
++GEMINI = os.path.join(PORCHLIGHT, "art/gemini/sets")
++PW, PH = 1024, 572           # painting pixel space used by every set JSON
++FACTORS = {"far": 0.82, "near": 1.22}   # parallax: <1 trails the camera (far), >1 runs ahead of it (near)
++MAGENTA = np.array([255, 0, 255], np.float32)
++KEY_IN, KEY_OUT = 70.0, 150.0   # RGB distance from magenta: below KEY_IN = fully keyed out, above KEY_OUT = solid
++
++
++def find(base, names):
++    for n in names:
++        for ext in (".png", ".jpg", ".jpeg", ".webp"):
++            p = os.path.join(base, n + ext)
++            if os.path.exists(p):
++                return p
++    return None
++
++
++def load_rgb(path, size=None):
++    """Gemini redraws the whole frame at its own size (often 1408x768 or 1344x768, not exactly 16:9) with the same
++    composition, so stretch it to the plate's size; align() then fixes what's left."""
++    im = Image.open(path).convert("RGB")
++    return im if size is None else im.resize(size, Image.LANCZOS)
++
++
++def key_magenta(a):
++    """Float alpha (0..1) from an RGB array: magenta (and Gemini's slightly-off magenta) is transparent."""
++    d = np.sqrt(((a.astype(np.float32) - MAGENTA) ** 2).sum(-1))
++    t = np.clip((d - KEY_IN) / (KEY_OUT - KEY_IN), 0, 1)
++    return t * t * (3 - 2 * t)
++
++
++def warp(im, s, dx, dy, asp=1.0):
++    """Scale `im` by s (and its width by a further asp) about its centre and shift it by (dx, dy) pixels."""
++    W, H = im.size
++    sx, sy = s * asp, s
++    cx, cy = W / 2, H / 2  # PIL's affine maps each output pixel back to the input: x_in = cx + (x - cx - dx) / sx
++    return im.transform((W, H), Image.AFFINE, (1 / sx, 0, cx - (cx + dx) / sx, 0, 1 / sy, cy - (cy + dy) / sy),
++                        resample=Image.BILINEAR, fillcolor=(255, 0, 255))  # the uncovered border: magenta, i.e. empty
++
++
++def align(plate, layer, weight, label, start=None):
++    """Find the scale, width stretch and shift that put Gemini's `layer` on top of the plate: a coarse-to-fine search
++    minimising the mean colour difference over the pixels `weight` (0..1, plate-sized) says to compare
++    (weight None: a magenta cut-out, compared wherever it has paint once moved).
++    Returns (s, dx, dy, asp, err) in plate pixels; err is the mean RGB difference per channel (0-255) at the fit."""
++    best = start or (1.0, 0.0, 0.0, 1.0)
++    # start given (a thin layer, e.g. grass: Gemini moves all three pictures alike): skip the coarse search
++    levels = ((480, None, 6, 1), (960, None, 3, 1)) if start else \
++        ((192, np.arange(0.94, 1.0601, 0.01), 12, 1), (480, None, 4, 1), (960, None, 3, 1))
++    for width, scales, reach, step in levels:
++        k = width / plate.width
++        sz = (width, round(plate.height * k))
++        P = np.asarray(plate.resize(sz, Image.BILINEAR), np.float32)
++        Wt = None if weight is None else \
++            np.asarray(Image.fromarray((weight * 255).astype(np.uint8)).resize(sz, Image.BILINEAR), np.float32) / 255
++        Ls = layer.resize(sz, Image.BILINEAR)
++        s0, dx0, dy0, a0 = best
++        cands = [(s, 1.0) for s in scales] if scales is not None else \
++            [(s0 + d, a0 + da) for d in (-0.004, -0.002, 0, 0.002, 0.004) for da in ((-0.006, 0, 0.006) if width == 480 else (0,))]
++        top = (1e9, best)
++        if start:  # the starting fit's own score, so a noisy search can't wander off a good start
++            A0 = np.asarray(warp(Ls, s0, dx0 * k, dy0 * k, a0), np.float32)
++            w0 = solid_core(A0) if Wt is None else Wt * (key_magenta(A0) > 0.5)
++            if w0.sum() >= 60:
++                top = (0.97 * (np.minimum(np.abs(A0 - P).mean(-1), 40.0) * w0).sum() / w0.sum(), best)
++        for s, asp in cands:
++            for ix in range(-reach, reach + 1, step):
++                for iy in range(-reach, reach + 1, step):
++                    dx, dy = dx0 * k + ix, dy0 * k + iy
++                    A = np.asarray(warp(Ls, s, dx, dy, asp), np.float32)
++                    # a cut-out is compared only inside its solid paint after the move: a blended edge pixel (magenta
++                    # mixed with paint) reads as solid pink, and a thin layer (grass) is nearly all edge
++                    w_ = solid_core(A) if Wt is None else Wt * (key_magenta(A) > 0.5)
++                    if w_.sum() < 60:  # too thin to measure at this size: keep the starting fit
++                        continue
++                    # capped per pixel: a few wildly wrong pixels (a border, something Gemini added) can't outvote the rest
++                    e = (np.minimum(np.abs(A - P).mean(-1), 40.0) * w_).sum() / max(1.0, w_.sum())
++                    if e < top[0]:
++                        top = (e, (s, dx / k, dy / k, asp))
++        best = top[1]
++        err = top[0]
++    print(f"  {label}: scale {best[0]:.3f} (width x{best[3]:.3f}), shift ({best[1]:+.0f}, {best[2]:+.0f}) px, mean difference {err:.1f}")
++    if err > 28:
++        print(f"  WARNING {label}: Gemini moved or repainted too much (difference {err:.0f}); regenerate it "
++              f"(say 'exactly the same size and position as image 1') or use --bands")
++    return best + (err,)  # (s, dx, dy, asp, err)
++
++
++def inpaint(rgb, known):
++    """Fill the unknown pixels (known False) from the colours around them: blurred known pixels divided by the
++    blurred mask, at growing radii, coarse fills only where finer ones found nothing (normalised convolution)."""
++    out = rgb.astype(np.float32).copy()
++    k = known.astype(np.float32)
++    todo = ~known
++    small = lambda a, r: np.asarray(Image.fromarray(a).filter(ImageFilter.GaussianBlur(r)), np.float32)
++    for r in (4, 12, 40, 120):
++        wk = small((k * 255).astype(np.uint8), r) / 255
++        got = (wk > 0.02) & todo
++        if not got.any():
++            continue
++        for c in range(3):
++            num = small(np.clip(out[..., c] * k, 0, 255).astype(np.uint8), r)
++            out[..., c][got] = (num[got] / np.maximum(wk[got], 1e-3))
++        k = np.where(got, 1.0, k)
++        todo &= ~got
++    return np.clip(out, 0, 255)
++
++
++def to_edges(mask, valid, reach=80):
++    """A fitted layer can leave a sliver along the frame edge where Gemini's picture didn't reach: carry the mask
++    out to the edge from the nearest pixels it does cover."""
++    m = mask.copy()
++    hole = ~valid
++    grow = Image.fromarray((m * 255).astype(np.uint8))
++    for _ in range(reach // 8):
++        grow = grow.filter(ImageFilter.MaxFilter(17))
++        g = np.asarray(grow, np.float32) / 255
++        m = np.where(hole, np.maximum(m, g), m)
++    return m
++
++
++def solid_core(A):
++    """1 where a keyed picture is solid paint at least a pixel in from any edge, else 0."""
++    m = Image.fromarray(((key_magenta(A) > 0.99) * 255).astype(np.uint8)).filter(ImageFilter.MinFilter(3))
++    return np.asarray(m, np.float32) / 255
++
++
++def match_colours(src, ref, where):
++    """Shift src's per-channel mean and spread to ref's over the pixels `where` (bool), so Gemini's fill matches."""
++    out = src.astype(np.float32).copy()
++    if where.sum() < 500:
++        return out
++    for c in range(3):
++        a, b = src[..., c][where].astype(np.float32), ref[..., c][where].astype(np.float32)
++        out[..., c] = (out[..., c] - a.mean()) / max(1e-3, a.std()) * b.std() + b.mean()
++    return np.clip(out, 0, 255)
++
++
++def soften(mask, grow, feather):
++    """Clean a 0..1 mask: drop specks, grow it by `grow` px (a little of the background rides along, so no gap of
++    sky shows round an edge when the layers slide), and feather the edge."""
++    m = Image.fromarray((mask * 255).astype(np.uint8))
++    m = m.filter(ImageFilter.MinFilter(3)).filter(ImageFilter.MaxFilter(3))   # specks out
++    if grow:
++        m = m.filter(ImageFilter.MaxFilter(2 * grow + 1))
++    if feather:
++        m = m.filter(ImageFilter.GaussianBlur(feather))
++    return np.asarray(m, np.float32) / 255
++
++
++def mirror_fill(a, cut_y, down=True):
++    """Fill everything below (down) / above row cut_y by mirroring the rows next to it: the band split's stand-in
++    for the ground hidden behind a nearer layer (only a sliver of it ever shows)."""
++    out = a.copy()
++    H = a.shape[0]
++    rows = range(cut_y, H) if down else range(0, cut_y)
++    for y in rows:
++        src = 2 * cut_y - y - 1 if down else 2 * cut_y - y
++        out[y] = a[min(H - 1, max(0, src))]
++    return out
++
++
++def main():
++    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
++    ap.add_argument("img", help="the set painting's name, as in locations.PLATE_SETS img= (e.g. lake_day_v3)")
++    ap.add_argument("--bands", help="no Gemini pictures: far/mid and mid/near cut heights in painting px, e.g. 330,500")
++    ap.add_argument("--near-behind", action="store_true", help="the near layer sits behind the cast (it includes "
++                    "ground they stand on); default: in front, like foreground plants")
++    ap.add_argument("--far", type=float, default=FACTORS["far"], help="far parallax factor (default 0.82)")
++    ap.add_argument("--near", type=float, default=FACTORS["near"], help="near parallax factor (default 1.22)")
++    a = ap.parse_args()
++
++    plate_path = os.path.join(SETS, a.img + ".png")
++    if not os.path.exists(plate_path):
++        sys.exit(f"no plate {plate_path} (set PORCHLIGHT_DIR to the Porchlight folder)")
++    plate = Image.open(plate_path).convert("RGB")
++    W, H = plate.size
++    P = np.asarray(plate, np.float32)
++    out_dir = os.path.join(SETS, "layers")
++    os.makedirs(out_dir, exist_ok=True)
++    print(f"{a.img}: plate {W}x{H}")
++
++    if a.bands:
++        y1, y2 = (int(v) * H // PH for v in a.bands.split(","))
++        ramp = lambda y0: np.clip((np.arange(H)[:, None] - y0) / (0.006 * H) + 0.5, 0, 1) * np.ones((1, W))
++        mid_m, near_m = ramp(y1), ramp(y2)
++        far_rgb = mirror_fill(P, y1 + int(0.01 * H))
++        mid_rgb = mirror_fill(P, y2 + int(0.01 * H))
++        mid_a = mid_m
++        print(f"  bands: far above {y1}px, near below {y2}px (plate px)")
++    else:
++        g_far, g_mid, g_near = (find(GEMINI, [f"{a.img}_{k}"]) for k in ("far", "mid", "near"))
++        missing = [k for k, p in (("far", g_far), ("mid", g_mid), ("near", g_near)) if not p]
++        if missing:
++            sys.exit(f"missing Gemini pictures in {GEMINI}: {', '.join(a.img + '_' + k for k in missing)} "
++                     f"(GEMINI_PROMPTS.md F3), or use --bands")
++        layers, fit = {}, None
++        white = Image.new("RGB", (W, H), (255, 255, 255))
++        for k, p in (("mid", g_mid), ("near", g_near)):
++            im = load_rgb(p, (W, H))
++            s, dx, dy, asp, _ = align(plate, im, None, k, start=fit)
++            fit = fit or (s, dx, dy, asp)
++            im = warp(im, s, dx, dy, asp)
++            valid = np.asarray(warp(white, s, dx, dy, asp))[..., 1] > 128  # where Gemini's picture reaches
++            layers[k] = (np.asarray(im, np.float32), to_edges(key_magenta(np.asarray(im)), valid))
++        near_m = soften(layers["near"][1], grow=4, feather=1.5)
++        mid_only = soften(layers["mid"][1], grow=4, feather=1.5)
++        mid_m = np.maximum(mid_only, near_m)      # the mid layer covers what's behind the near layer too
++        covered = mid_m > 0.02
++        im = load_rgb(g_far, (W, H))
++        s, dx, dy, asp, _ = align(plate, im, (~covered).astype(np.float32), "far", start=fit)
++        far_g = np.asarray(warp(im, s, dx, dy, asp), np.float32)
++        edge = key_magenta(far_g) < 0.5
++        far_g[edge] = P[edge]  # a sliver of border uncovered by the fit: the painting's own pixels
++        far_g = match_colours(far_g, P, ~covered)
++        w = soften(covered.astype(np.float32), grow=10, feather=6)[..., None]
++        far_rgb = P * (1 - w) + far_g * w           # the plate where it's seen, Gemini's sky/hills behind the rest
++        # the ground behind the near things: only slivers of it ever show as they slide, so it's filled from the
++        # painting's own ground around them (Gemini's mid picture is often empty or redrawn there)
++        free = soften((near_m > 0.02).astype(np.float32), grow=14, feather=0) < 0.02  # clear of their outlines
++        mid_g = inpaint(P, free)
++        wn = soften((near_m > 0.02).astype(np.float32), grow=8, feather=4)[..., None]
++        mid_rgb = P * (1 - wn) + mid_g * wn         # the plate, and Gemini's ground where the near things stand
++        mid_a = mid_m
++        for k, m in (("mid", mid_only), ("near", near_m)):
++            print(f"  {k}: covers {100 * (m > 0.5).mean():.0f}% of the picture")
++
++    def save(name, rgb, alpha=None):
++        arr = np.clip(rgb, 0, 255).astype(np.uint8)
++        im = Image.fromarray(arr, "RGB")
++        if alpha is not None:
++            im.putalpha(Image.fromarray((np.clip(alpha, 0, 1) * 255).astype(np.uint8)))
++        p = os.path.join(out_dir, f"{a.img}_{name}.png")
++        im.save(p, optimize=True)
++        return im
++
++    far_im = save("far", far_rgb)
++    mid_im = save("mid", mid_rgb, mid_a)
++    near_im = save("near", P, near_m)
++
++    # check sheet: the plate, then each layer on a checkerboard (holes and halos show up at once)
++    tw, th = 960, 540
++    sheet = Image.new("RGB", (tw * 2, th * 2), "white")
++    chk = Image.fromarray(((np.indices((th, tw)) // 24).sum(0) % 2 * 60 + 150).astype(np.uint8)).convert("RGB")
++    for i, (lbl, im) in enumerate((("plate", plate), ("far", far_im), ("mid", mid_im), ("near", near_im))):
++        bg = chk.copy()
++        sm = im.resize((tw, th), Image.LANCZOS)
++        bg.paste(sm, (0, 0), sm if sm.mode == "RGBA" else None)
++        sheet.paste(bg, ((i % 2) * tw, (i // 2) * th))
++    sheet.save(os.path.join(out_dir, f"{a.img}_layers.png"))
++
++    # parallax preview: a camera pan left and right across the set
++    frames = []
++    pw, ph = 640, 360
++    f_, m_, n_ = (im.resize((pw, ph), Image.LANCZOS) for im in (far_im, mid_im, near_im))
++    for t in range(32):
++        cam = 28 * np.sin(2 * np.pi * t / 32)     # camera x, preview px
++        fr = Image.new("RGB", (pw, ph))
++        for im, fac in ((f_, a.far), (m_, 1.0), (n_, a.near)):
++            off = int(round(-cam * fac))
++            fr.paste(im, (off, 0), im if im.mode == "RGBA" else None)
++        frames.append(fr.crop((32, 0, pw - 32, ph)))
++    frames[0].save(os.path.join(out_dir, f"{a.img}_parallax.gif"), save_all=True, append_images=frames[1:], duration=60, loop=0)
++
++    spec_path = os.path.join(SETS, a.img + ".json")
++    spec = json.load(open(spec_path)) if os.path.exists(spec_path) else {}
++    spec["layers"] = {"far": a.far, "near": a.near, "near_behind": bool(a.near_behind)}
++    json.dump(spec, open(spec_path, "w"), indent=None)
++    print(f"  wrote {out_dir}/{a.img}_far|mid|near.png, the check sheet {a.img}_layers.png and {a.img}_parallax.gif;")
++    print(f"  {a.img}.json now has \"layers\" (episodes with \"act\" use them; delete the key to switch them off)")
++
++
++if __name__ == "__main__":
++    main()
 diff --git a/voices/speak.py b/voices/speak.py
 index 60a29e6..10e4b75 100644
 --- a/voices/speak.py

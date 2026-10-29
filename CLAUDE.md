@@ -11,6 +11,7 @@ Porchlight is an animated story series starring the Friendzy cast (Riot 🦊, Ro
 | Animation rules, known problems, per-episode checklist | `ANIMATION_CHECKLIST.md` |
 | Animation fixes done + every episode JSON field | `ANIMATION_TODO.md` |
 | Gemini set-painting prompts | `GEMINI_PROMPTS.md` |
+| Depth layers for painted sets (tool + how-to) | `DEPTH_LAYERS.md`; tool `Blender/tools/depth_layers.py` |
 | Folder overview | `README.md` |
 | Rejected earlier idea (reference only) | `archive/old-series-idea/` (local folder, not in git) |
 | Animation pipeline (shared with the Friendzy Shorts) | `~/Desktop/Friendzy/Blender/` — start with `doctor.py` and `README.md` there |
@@ -26,7 +27,7 @@ There is **one** Blender pipeline, shared with the Friendzy advertiser (which ma
 3. Done (29 Oct): a code review of the shared Blender pipeline, tested headless on Blender 5.2; its fixes are logged at the bottom of `ANIMATION_CHECKLIST.md`.
 4. **Waiting on the user:** the three arc 2 questions at the end of `STORY_MAP.md` (the smudged co-host, the festival's name, Walt's age on the storm night) and the premiere date (`DECISIONS.md` "Open").
 5. Next: story map arcs 3–8 (the user reviews each arc), then full scripts in batches of 5 (`scripts/`), each turned into episode JSON. Before Ep 2–5 stills: paint the new sets (`GEMINI_PROMPTS.md` C1–C6b) and build the items flagged in the checklist's "New problems found" (the opening door for Ep 2, the photo insert for Ep 5).
-6. Still to build: new characters (Mrs. Brook, Gus, Dot, Big Hal, the Mayor cat, Preston, the human hiker, Walt) with voices; a side-view walk; a written theme tune. Premiere when 6 episodes are finished (realistically early December), then Wednesday + Saturday.
+6. Still to build: new characters (Mrs. Brook, Gus, Dot, Big Hal, the Mayor cat, Preston, the human hiker, Walt) with voices; a written theme tune. (Side-view walks, drawn poses, the plain-text script format and the auto-director are built: `WRITING_AN_EPISODE.md`, `ANIMATION_WINS.md`.) Premiere when 6 episodes are finished (realistically early December), then Wednesday + Saturday.
 
 ## How to do the project (the process, with the user's approval gates)
 1. **Decide** with the user (numbered questions) → write it into `DECISIONS.md` immediately.
@@ -79,7 +80,7 @@ Every Porchlight field is listed in `ANIMATION_TODO.md` ("How to use it in an ep
 Not yet:
 - New characters: the roster only has the four friends; Mrs. Brook, Gus, Dot, Big Hal, the Mayor cat, Preston, the hiker and Walt need building (reference sheet first) and voices.
 - Sets beyond the six painted ones (hall outside, classroom, Mrs. Brook's porch, main street, Walt's dining room and hallway, Gus's garage, the town line, the festival stage): paint them (`GEMINI_PROMPTS.md`), then set their spots.
-- Doors that open, a side-view walk, narrator-only lines, sit-down/stand-up moves, touching between characters (see the checklist's todo items).
+- Doors that open and plants that move as someone passes (they need the door paintings A2/A3 and the F cut-outs), narrator-only lines, a drawn three-quarter view. (Side-view walks, sit-down/stand-up, touching, drawn poses and depth layers are built.)
 
 ## How to work with this user
 - Lives in Tbilisi (UTC+4); targets EU + US audiences.
