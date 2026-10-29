@@ -80,6 +80,11 @@ The user asked (29 Oct 2026) to fix all 37, working until the session limit. Sta
 
 Set data (spots, front pieces, lamps, life) lives in `art/hd/sets/<painting>.json`; front pieces are cut by `tools/fronts.py`.
 
+More set life (29 Oct), each placed in painting pixels in the set's JSON `"life"`: `clouds {area, n}`, `ripples {area, n}`,
+`townsfolk {path: [x0, y, x1], n, size}`, `bike {path, every}`, `stars {area, n}`, `moon [x, y, r]`, `porchlights [[x, y], ...]`,
+`dragonflies {area, n}`, `fish {area, every}`, `pollen {area, n}`, `fog {area, n}`, `flicker [[x, y, r], ...]` (a TV's light),
+`heat {area}`, `puddles [[x, y, w], ...]`, `wall_shadow: 0.3` (a wall close behind the cast). Nothing shows unless the set lists it.
+
 The episode JSON is checked before anything renders: a speaker, `look`, `target`, `react` or camera name that isn't in the beat's cast, an unknown `do`, `fx`, `carry`, mood, weather or transition, an `enter`/`exit` side other than left/right, or an empty line stops `make.py` with a message saying what's wrong.
 
 The Porchlight folder is found at `~/Desktop/Porchlight`; set `PORCHLIGHT_DIR` if it moves (`BLENDER` likewise points at another Blender).

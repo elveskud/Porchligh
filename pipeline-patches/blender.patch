@@ -46,7 +46,7 @@ index c106574..ec47cad 100644
  
  
 diff --git a/characters/cast.py b/characters/cast.py
-index 9c90740..c49dc4f 100644
+index 9c90740..89ae986 100644
 --- a/characters/cast.py
 +++ b/characters/cast.py
 @@ -37,6 +37,7 @@ EXPRESSIONS = {
@@ -57,6 +57,77 @@ index 9c90740..c49dc4f 100644
  }
  ARC_EYES = {"laughing"}  # expressions drawn with closed ^ ^ eyes
  
+@@ -71,6 +72,12 @@ BODY_TURN_PARTS = [("_zip", 0.55), ("_pocket", 0.45), ("_string", 0.6), ("_pipe"
+                    ("_belly", 0.3), ("_hood", -0.25)]
+ 
+ 
++def body_of(c):
++    """The character's body empty. Blender names a second copy of a character "riot_body.001", so match the name
++    without that suffix (a plain endswith("_body") missed every copy after the first: no torso bend, no stride)."""
++    return c.extras.get("body") or next((o for o in c.root.children if o.name.split(".")[0].endswith("_body")), None)
++
++
+ class Character:
+     def __init__(self, name):
+         self.name = name
+@@ -183,7 +190,7 @@ class Character:
+             o.location.x = o["bx"] + TURN * t * k
+             if frame is not None:
+                 o.keyframe_insert("location", frame=frame)
+-        body = self.extras.get("body") or next((o for o in self.root.children if o.name.endswith("_body")), None)
++        body = body_of(self)
+         for o in (body.children if body is not None else ()):  # cheap 3/4 body: the chest details turn with the head
+             k = next((f for key, f in BODY_TURN_PARTS if key in o.name), None)
+             if k is None:
+@@ -268,7 +275,7 @@ def wall_shadow(c, alpha=0.3):
+     top-left), parented to the body and head so it moves, leans and jumps with them."""
+     if "shadow" in c.extras:
+         return
+-    body = next(o for o in c.root.children if o.name.endswith("_body"))
++    body = body_of(c)
+     hw, _ = face_box(c)
+     light(f"{c.name}_wshadow_body", ell(0.75, 4.55, 2.05, 1.95), "#1A1030", alpha, body, -1.6)
+     light(f"{c.name}_wshadow_head", ell(0.8, 1.05, hw * 1.05, 2.05), "#1A1030", alpha, c.extras["head"], -2.0)
+@@ -293,9 +300,15 @@ CEL_SKIP = ("_ol", "_eye", "_pupil", "_lid", "_m_", "_brow", "_nose", "_philtrum
+             "_blush", "_mark", "_star", "_sparkle", "_btn", "_knot", "_shine", "_cel", "_hem", "_cuff", "_string", "_bridge")
+ 
+ 
++CEL_LIGHT = (-0.6, 0.8)  # where the cel light comes from (top-left); a set lit from the right flips it before building
++RIM = None               # (colour, width): a thin bright edge on the lit side (moonlight, sunset); None = no rim
++
++
+ def cel(c):
+-    """Shadow crescents on the lower-right of every big coloured shape (light from the top-left);
+-    very dark shapes get a lighter rim on the lit side instead."""
++    """Shadow crescents on the side of every big coloured shape away from the light (CEL_LIGHT: top-left unless a
++    set says otherwise); very dark shapes get a lighter rim on the lit side instead. With RIM, the big shapes also
++    get a thin bright edge on the lit side (night and sunset sets)."""
++    lx, ly = CEL_LIGHT
+     mouth_parts = {id(x) for m in c.mouths.values() for x in m.children_recursive}
+     for o in list(c.root.children_recursive):
+         if o.type != "MESH" or "hex" not in o or any(k in o.name for k in CEL_SKIP) or id(o) in mouth_parts:
+@@ -308,14 +321,18 @@ def cel(c):
+         hexv = o["hex"]
+         lum = sum(int(hexv[i:i + 2], 16) for i in (1, 3, 5)) / 765
+         d = min(max(0.11 * size, 0.1), 0.42)
+-        if lum < 0.16:   # charcoal / black: lit rim on the top-left
+-            band = crescent(o, _hex_shift(hexv, 1.9), d * 0.7, toward=(0.6, -0.8))
++        if lum < 0.16:   # charcoal / black: lit rim on the lit side
++            band = crescent(o, _hex_shift(hexv, 1.9), d * 0.7, toward=(-lx, -ly))
+         elif lum < 0.95:  # warm shadows: light colours pick up saturation instead of going grey
+-            band = crescent(o, _hex_shift(hexv, 0.84 if lum > 0.7 else 0.8, 0.45 if lum > 0.7 else 0.1), d)
++            band = crescent(o, _hex_shift(hexv, 0.84 if lum > 0.7 else 0.8, 0.45 if lum > 0.7 else 0.1), d, toward=(lx, ly))
+         else:
+             band = None
+         if band is not None:  # new objects start visible: match the fill (hidden hands, costume bits...)
+             band.hide_render, band.hide_viewport = o.hide_render, o.hide_viewport
++        if RIM and size > 1.4 and lum >= 0.16:  # the light's own colour catching the edge that faces it
++            rim_ = crescent(o, RIM[0], RIM[1], toward=(-lx, -ly), z=0.0018)
++            if rim_ is not None:
++                rim_.hide_render, rim_.hide_viewport = o.hide_render, o.hide_viewport
+ 
+ 
+ # ---------- shared parts ----------
 diff --git a/characters/layout.py b/characters/layout.py
 index b831fb2..cd685ab 100644
 --- a/characters/layout.py
@@ -136,10 +207,37 @@ index 0000000..a8192fb
 +            return None
 +    return [(c["start"], c["value"]) for c in json.load(open(cache))["mouthCues"]]
 diff --git a/characters/locations.py b/characters/locations.py
-index f7e5724..10e31c9 100644
+index f7e5724..a1affc9 100644
 --- a/characters/locations.py
 +++ b/characters/locations.py
-@@ -916,7 +916,9 @@ def _widen_party_room(L, half):
+@@ -30,6 +30,7 @@ class Location:
+ 
+ 
+ LIVE = []
++CAST_LIGHT_MAX = 1.0  # cap on a set's light on the cast (episodes with "act" keep night faces readable: 0.35)
+ 
+ 
+ # ---------- ambient light: the set lights the cast, and that light is alive ----------
+@@ -142,6 +143,8 @@ def ambient(f0, f1):
+         if n in PLATE_SETS:  # painted sets: a living set, soft contact shadows, the set's light on the cast
+             plate_life(L, f0, f1)
+             for c in getattr(L, "cast", ()):
++                if getattr(L, "life", {}).get("wall_shadow"):  # a wall close behind them: soft shadows on it
++                    cast.wall_shadow(c, L.life["wall_shadow"])
+                 if c.extras.get("spot_kind", "stand") == "stand":  # sitters are on furniture, not the floor
+                     ground_shadow(c, *PLATE_SETS[n].get("shadow", (0.1, 1.0, 0.0)))
+                 else:  # sitting: the cushion dips under them (a soft dark hollow around the hips)
+@@ -149,7 +152,8 @@ def ambient(f0, f1):
+                     for i in range(6):
+                         k = 1 - i / 6
+                         light(f"{c.name}_dip{i}", ell(0, 0, 2.3 * k, 0.55 * k, n=40), "#2A1408", 0.07, g, i * 1e-3)
+-                light_cast(c, *PLATE_SETS[n].get("cast", ("#FFFFFF", 0.0)))
++                col_, amt_ = PLATE_SETS[n].get("cast", ("#FFFFFF", 0.0))
++                light_cast(c, col_, min(amt_, CAST_LIGHT_MAX))
+                 if c.extras.get("spot_depth"):  # air between us and them: further back = a touch lighter and bluer
+                     light_cast(c, PLATE_SETS[n].get("haze", "#CFE0F2"), 0.0025 * c.extras["spot_depth"])
+                 x = c.root.location.x - L.root.location.x
+@@ -916,7 +920,9 @@ def _widen_party_room(L, half):
  # ---------- Porchlight: painted sets (Gemini paintings upscaled to 4K, in the cast's style) ----------
  # Each painting is one flat background plate; the cast stands on its ground line. 16:9 only (episodes are horizontal).
  # Spec: painting file, ground line and standing spots in the painting's own 1024x572 pixels, cast scale, light tint.
@@ -150,7 +248,7 @@ index f7e5724..10e31c9 100644
  PLATE_SETS = {
      # cast: the set's light on the characters (colour, how much of it); night is blue, lamps and sunset are warm
      "lake":         dict(img="lake_day_v3", ground=520, xs=(250, 420, 600, 780), s=0.48, tint=("#FFB560", 0.06), cast=("#FFD9A0", 0.06), shadow=(0.11, 1.0, 0.0)),
-@@ -966,7 +968,10 @@ def plate(name):
+@@ -966,7 +972,10 @@ def plate(name):
      L = PlateLocation(name)
      h = PLATE_O * PLATE_BLEED
      ppu = 2160 / h
@@ -162,7 +260,16 @@ index f7e5724..10e31c9 100644
      s = sp["s"]
      # depth staging: spots step back alternately (painting px up from the ground line), smaller and further back
      depth = sp.get("depth", (0, 30, 8, 38))
-@@ -1074,7 +1079,7 @@ def plate_life(L, f0, f1, step=2):
+@@ -986,6 +995,8 @@ def plate(name):
+         L.seats.append((x, y + (3.2 * sc_ if kind == "stand" else 0.0), sc_, z))
+         L.spot_kind.append(kind)
+     L.life = spec.get("life", {})
++    L.light_from = spec.get("light_from", "left")  # which side the painting's light comes from (shading on the cast)
++    L.rim = spec.get("rim")  # rim light colour on the cast; None: the scene picks (moonlight at night, warm at sunset)
+     L.lamps = []
+     for px, py, col, r_px, strength in spec.get("lamps", []):  # [px, py, colour, radius in painting px, strength]
+         lx, ly = plate_xy(name, px, py)
+@@ -1074,7 +1085,7 @@ def plate_life(L, f0, f1, step=2):
              stroke(f"{name}_bird{i}_s", [(-0.28, 0.12), (-0.1, 0.0), (0.0, -0.04), (0.1, 0.0), (0.28, 0.12)], 0.05, "#2A2A3A", w, 0.0)
              by, per, ph = rnd.uniform(min(y0, y1), max(y0, y1)), rnd.uniform(300, 520), rnd.uniform(0, 1)
              for fr in frames:
@@ -171,7 +278,7 @@ index f7e5724..10e31c9 100644
                  g.location.x = x0 + (x1 - x0) * u
                  g.location.y = by + 0.4 * math.sin(u * 9 + i)
                  w.scale.y = 0.4 + 0.6 * abs(math.sin(fr * 0.5 + i))  # wing flap
-@@ -1115,7 +1120,7 @@ def plate_life(L, f0, f1, step=2):
+@@ -1115,7 +1126,7 @@ def plate_life(L, f0, f1, step=2):
              shape(f"{name}_leaf{i}_s", [(0, 0.12), (0.09, 0), (0, -0.12, "s"), (-0.09, 0)], lv.get("color", "#6A9A3A"), g, 0.0, ol=0.02)
              bx, per, ph = rnd.uniform(x0, x1), rnd.uniform(160, 260), rnd.uniform(0, 1)
              for fr in frames:
@@ -180,8 +287,197 @@ index f7e5724..10e31c9 100644
                  g.location.x = bx + 1.5 * u + 0.4 * math.sin(u * 12)
                  g.location.y = max(y0, y1) - (abs(y1 - y0)) * u
                  g.rotation_euler.z = math.sin(u * 10 + i) * 1.2
+@@ -1140,6 +1151,188 @@ def plate_life(L, f0, f1, step=2):
+         for fr in frames:
+             o.location.x = x0_ + 0.04 * math.sin(fr * 0.05 + ph) + 0.015 * _wobble(fr, len(fname), 0.2)
+             o.keyframe_insert("location", index=0, frame=fr)
++    more_life(L, life, frames, rnd)
++    for i in range(len(getattr(L, "lamps", ()))):  # lamp glows breathe very slightly, like a real bulb
++        o = bpy.data.objects.get(f"{name}_lamp{i + 1}")
++        if o is not None:
++            _keys(o, frames, lambda fr, o=o, i=i: setattr(o, "scale", (1 + 0.035 * _wobble(fr, 40 + i, 0.6),) * 2 + (1,)), ("scale",))
++
++
++def _area(name, spec):
++    (x0, y0), (x1, y1) = plate_xy(name, *spec["area"][:2]), plate_xy(name, *spec["area"][2:])
++    return x0, min(y0, y1), x1, max(y0, y1)
++
++
++def _keys(o, frames, fn, paths=("location", "scale")):
++    """Key o on every frame in frames: fn(fr) sets its transforms."""
++    for fr in frames:
++        fn(fr)
++        for p_ in paths:
++            o.keyframe_insert(p_, frame=fr)
++
++
++def more_life(L, life, frames, rnd):
++    """The rest of a painted set's life, each from its JSON "life" (positions in painting pixels, so every effect
++    sits where the painting has room for it). All motion is a function of the absolute frame, so parallel render
++    jobs agree where they meet.
++      clouds {area, n}: soft clouds drifting        ripples {area, n}: long slow light lines on water
++      townsfolk {path: [x0, y, x1], n}: tiny far-off walkers     bike {path: [x0, y, x1]}: a bike now and then
++      stars {area, n}: twinkling        moon [x, y, r]: a soft breathing glow      porchlights [[x, y], ...]: far lights
++      dragonflies {area, n}      fish {area}: a ring now and then      pollen {area, n}: drifting seeds
++      fog {area, n}: low drifting fog      flicker [[x, y, r], ...]: a TV's light on a wall
++      heat {area}: shimmer over hot sand      puddles [[x, y, w], ...]: wet ground catching the light"""
++    name = L.name
++    h_ = PLATE_O * PLATE_BLEED / 572  # set units per painting px
++    if "clouds" in life:
++        x0, y0, x1, y1 = _area(name, life["clouds"])
++        for i in range(life["clouds"].get("n", 3)):
++            g = empty(f"{name}_cloud{i}", L.root, (x0, y0), -9.3)
++            w = rnd.uniform(1.2, 2.2)
++            for j, (dx, dy, r) in enumerate(((-0.6, 0, 0.55), (0, 0.18, 0.75), (0.65, 0.02, 0.5))):
++                light(f"{name}_cloud{i}_{j}", ell(dx * w, dy * w, r * w, r * w * 0.6, n=28), "#FFFFFF", 0.55, g, j * 1e-3)
++            by, ph, sp = rnd.uniform(y0, y1), rnd.uniform(0, 1), life["clouds"].get("speed", 0.0015)
++            _keys(g, frames, lambda fr, g=g, by=by, ph=ph, sp=sp: setattr(g, "location", (x0 + (x1 - x0) * ((fr * sp + ph) % 1.0), by, -9.3)), ("location",))
++    if "ripples" in life:
++        x0, y0, x1, y1 = _area(name, life["ripples"])
++        for i in range(life["ripples"].get("n", 8)):
++            g = empty(f"{name}_ripple{i}", L.root, (0, 0), 1.15)
++            wv = rnd.uniform(0.8, 1.6)
++            stroke(f"{name}_ripple{i}_s", [(-wv, 0), (-wv / 2, 0.04), (0, 0), (wv / 2, -0.04), (wv, 0)], 0.035, "#FFFFFF", g, 0.0)
++            bx, by, per, ph = rnd.uniform(x0, x1), rnd.uniform(y0, y1), rnd.uniform(90, 150), rnd.uniform(0, 1)
++            def rp(fr, g=g, bx=bx, by=by, per=per, ph=ph):
++                u = (fr / per + ph) % 1.0
++                k = max(0.0001, math.sin(math.pi * u))
++                g.location = (bx + 0.6 * u, by, 1.15)
++                g.scale = (k, 1, 1)
++            _keys(g, frames, rp)
++    if "townsfolk" in life:
++        x0p, yp, x1p = life["townsfolk"]["path"]
++        (x0, y_), (x1, _) = plate_xy(name, x0p, yp), plate_xy(name, x1p, yp)
++        cols = ("#6A6F86", "#7D6A5E", "#5E7A6A", "#8A6F7E")
++        for i in range(life["townsfolk"].get("n", 2)):
++            sz = life["townsfolk"].get("size", 30) * h_ / 4.0
++            g = empty(f"{name}_folk{i}", L.root, (x0, y_), -9.2)
++            col = cols[i % len(cols)]
++            shape(f"{name}_folk{i}_b", ell(0, 1.4, 0.9, 1.3), col, g, 0.0, ol=0)
++            shape(f"{name}_folk{i}_h", ell(0, 3.2, 0.75, 0.7), col, g, 0.001, ol=0)
++            for s_ in (-1, 1):
++                shape(f"{name}_folk{i}_e{s_}", ell(0.45 * s_, 3.9, 0.22, 0.38), col, g, 0.0005, ol=0)
++            g.scale = (sz, sz, 1)
++            per, ph, d = rnd.uniform(500, 800), rnd.uniform(0, 1), 1 if i % 2 == 0 else -1
++            def fk(fr, g=g, per=per, ph=ph, d=d, sz=sz):
++                u = (fr / per + ph) % 1.0
++                xa, xb = (x0, x1) if d > 0 else (x1, x0)
++                g.location = (xa + (xb - xa) * u, y_ + 0.06 * sz * abs(math.sin(fr * 0.35)), -9.2)
++                g.scale = (sz * d, sz, 1)
++            _keys(g, frames, fk)
++    if "bike" in life:
++        x0p, yp, x1p = life["bike"]["path"]
++        (x0, y_), (x1, _) = plate_xy(name, x0p, yp), plate_xy(name, x1p, yp)
++        g = empty(f"{name}_bike", L.root, (x0, y_), -9.15)
++        sz = life["bike"].get("size", 30) * h_ / 3.0
++        for s_ in (-1, 1):
++            stroke(f"{name}_bike_w{s_}", [(1.0 * s_ + math.cos(2 * math.pi * j / 20) * 0.55, 0.55 + math.sin(2 * math.pi * j / 20) * 0.55) for j in range(21)], 0.12, "#3A3F55", g, 0.0)
++        stroke(f"{name}_bike_f", [(-1.0, 0.55), (-0.1, 1.5), (1.0, 0.55), (0.1, 0.6), (-1.0, 0.55)], 0.12, "#3A3F55", g, 0.0)
++        shape(f"{name}_bike_r", ell(-0.1, 2.4, 0.5, 0.8), "#6A5F80", g, 0.001, ol=0)
++        g.scale = (sz, sz, 1)
++        per = life["bike"].get("every", 900)
++        def bk(fr):
++            u = (fr % per) / 120.0
++            g.location = (x0 + (x1 - x0) * min(1.0, u), y_, -9.15)
++            g.scale = (sz if u < 1.0 else 0.0001, sz, 1)
++        _keys(g, frames, bk)
++    if "stars" in life:
++        x0, y0, x1, y1 = _area(name, life["stars"])
++        for i in range(life["stars"].get("n", 18)):
++            g = empty(f"{name}_star{i}", L.root, (rnd.uniform(x0, x1), rnd.uniform(y0, y1)), -9.35)
++            shape(f"{name}_star{i}_s", ell(0, 0, 0.045, 0.045, n=8), "#FFF6D8", g, 0.0, ol=0)
++            ph, sp = rnd.uniform(0, 6.28), rnd.uniform(0.04, 0.11)
++            _keys(g, frames, lambda fr, g=g, ph=ph, sp=sp: setattr(g, "scale", (max(0.2, 0.7 + 0.5 * math.sin(fr * sp + ph)),) * 2 + (1,)), ("scale",))
++    if "moon" in life:
++        mx_, my_ = plate_xy(name, *life["moon"][:2])
++        r_ = life["moon"][2] * h_
++        g = empty(f"{name}_moonglow", L.root, (mx_, my_), -9.36)
++        glow(f"{name}_moonglow_g", (0, 0), r_ * 2.2, r_ * 2.2, "#E8EEFF", 0.02, 30, g, 0.0)
++        _keys(g, frames, lambda fr: setattr(g, "scale", (1 + 0.06 * math.sin(fr * 0.02),) * 2 + (1,)), ("scale",))
++    for i, (px, py) in enumerate(life.get("porchlights", [])):
++        g = empty(f"{name}_farlight{i}", L.root, plate_xy(name, px, py), -9.3)
++        glow(f"{name}_farlight{i}_g", (0, 0), 0.16, 0.16, "#FFD27A", 0.08, 6, g, 0.0)
++        ph = rnd.uniform(0, 6.28)
++        _keys(g, frames, lambda fr, g=g, ph=ph: setattr(g, "scale", ((0.85 + 0.15 * math.sin(fr * 0.13 + ph)) * (0.3 if (fr + int(ph * 40)) % 211 < 3 else 1),) * 2 + (1,)), ("scale",))
++    if "dragonflies" in life:
++        x0, y0, x1, y1 = _area(name, life["dragonflies"])
++        for i in range(life["dragonflies"].get("n", 2)):
++            g = empty(f"{name}_fly{i}", L.root, (x0, y0), 9.4)
++            shape(f"{name}_fly{i}_b", rect(-0.2, -0.025, 0.2, 0.025), "#2A6A7A", g, 0.0, ol=0, smooth=0)
++            wg = empty(f"{name}_fly{i}_w", g, (0, 0), 0.001)
++            light(f"{name}_fly{i}_wl", ell(0, 0.08, 0.1, 0.13), "#E8F8FF", 0.6, wg, 0.0)
++            bx, by, ph = rnd.uniform(x0, x1), rnd.uniform(y0, y1), rnd.uniform(0, 100)
++            def df(fr, g=g, wg=wg, bx=bx, by=by, ph=ph):
++                t = fr * 0.02 + ph  # darts: holds still, then zips to a new spot
++                hop = math.floor(t)
++                u = min(1.0, (t - hop) * 4)
++                xa = bx + 1.2 * _wobble(hop, i + 5, 1.0)
++                xb = bx + 1.2 * _wobble(hop + 1, i + 5, 1.0)
++                g.location = (xa + (xb - xa) * u, by + 0.5 * _wobble(hop + u, i + 9, 1.0), 9.4)
++                wg.scale = (1, 0.3 + 0.7 * abs(math.sin(fr * 2.1)), 1)
++                wg.keyframe_insert("scale", frame=fr)
++            _keys(g, frames, df, ("location",))
++    if "fish" in life:
++        x0, y0, x1, y1 = _area(name, life["fish"])
++        for k in range(3):
++            g = empty(f"{name}_fish{k}", L.root, (0, 0), 1.18)
++            stroke(f"{name}_fish{k}_s", [(math.cos(2 * math.pi * j / 32), 0.25 * math.sin(2 * math.pi * j / 32)) for j in range(33)], 0.03, "#E8F4FF", g, 0.0)
++            per = life["fish"].get("every", 420) + k * 97
++            px_, py_ = rnd.uniform(x0, x1), rnd.uniform(y0, y1)
++            def fs(fr, g=g, per=per, px_=px_, py_=py_):
++                u = (fr % per) / 45.0
++                g.location = (px_, py_, 1.18)
++                g.scale = ((0.15 + 0.9 * u) if u < 1 else 0.0001, (0.15 + 0.9 * u) if u < 1 else 0.0001, 1)
++            _keys(g, frames, fs)
++    if "pollen" in life:
++        x0, y0, x1, y1 = _area(name, life["pollen"])
++        for i in range(life["pollen"].get("n", 10)):
++            g = empty(f"{name}_pollen{i}", L.root, (x0, y0), 9.3)
++            shape(f"{name}_pollen{i}_s", ell(0, 0, 0.04, 0.04, n=8), "#FFF8E0", g, 0.0, ol=0)
++            bx, by, ph, per = rnd.uniform(x0, x1), rnd.uniform(y0, y1), rnd.uniform(0, 1), rnd.uniform(400, 700)
++            def pl(fr, g=g, bx=bx, by=by, ph=ph, per=per):
++                u = (fr / per + ph) % 1.0
++                g.location = (bx + (x1 - x0) * 0.3 * u + 0.3 * math.sin(fr * 0.04 + ph * 6), by + 0.4 * math.sin(fr * 0.03 + ph * 9), 9.3)
++            _keys(g, frames, pl, ("location",))
++    if "fog" in life:
++        x0, y0, x1, y1 = _area(name, life["fog"])
++        for i in range(life["fog"].get("n", 4)):
++            g = empty(f"{name}_fog{i}", L.root, (0, 0), 8.6)
++            light(f"{name}_fog{i}_s", ell(0, 0, rnd.uniform(3.0, 5.0), rnd.uniform(0.5, 0.9), n=40), "#B8C4E0", 0.07, g, 0.0)
++            by, ph, sp = rnd.uniform(y0, y1), rnd.uniform(0, 1), rnd.uniform(0.0006, 0.0012)
++            _keys(g, frames, lambda fr, g=g, by=by, ph=ph, sp=sp: setattr(g, "location", (x0 + (x1 - x0) * ((fr * sp + ph) % 1.0), by, 8.6)), ("location",))
++    for i, (px, py, r) in enumerate(life.get("flicker", [])):
++        g = empty(f"{name}_tv{i}", L.root, plate_xy(name, px, py), 1.3)
++        glow(f"{name}_tv{i}_g", (0, 0), r * h_, r * h_ * 0.7, "#9FC4FF", 0.02, 20, g, 0.0)
++        _keys(g, frames, lambda fr, g=g: setattr(g, "scale", ((0.8 + 0.25 * (_wobble(fr, 61, 1.3) > 0.2) + 0.1 * _wobble(fr, 67, 2.0)),) * 2 + (1,)), ("scale",))
++    if "heat" in life:
++        x0, y0, x1, y1 = _area(name, life["heat"])
++        for i in range(6):
++            g = empty(f"{name}_heat{i}", L.root, (0, 0), 1.25)
++            light(f"{name}_heat{i}_s", [(x, 0.05 * math.sin(x * 4)) for x in [v / 10 for v in range(-15, 16)]] +
++                  [(x, 0.05 * math.sin(x * 4) - 0.04) for x in [v / 10 for v in range(15, -16, -1)]], "#FFFFFF", 0.05, g, 0.0, smooth=0)
++            bx, ph = rnd.uniform(x0, x1), rnd.uniform(0, 1)
++            def ht(fr, g=g, bx=bx, ph=ph):
++                u = (fr / 140 + ph) % 1.0
++                g.location = (bx, y0 + (y1 - y0) * u, 1.25)
++                g.scale = (1, max(0.0001, math.sin(math.pi * u)), 1)
++            _keys(g, frames, ht)
++    for i, (px, py, w) in enumerate(life.get("puddles", [])):
++        x_, y_ = plate_xy(name, px, py)
++        g = empty(f"{name}_puddle{i}", L.root, (x_, y_), -0.85)
++        light(f"{name}_puddle{i}_s", ell(0, 0, w * h_ / 2, w * h_ / 9, n=36), "#9FB8D8", 0.35, g, 0.0)
++        gl_ = empty(f"{name}_puddle{i}_gl", g, (0, 0), 0.01)
++        light(f"{name}_puddle{i}_gls", rect(-w * h_ / 8, -0.02, w * h_ / 8, 0.02), "#FFFFFF", 0.6, gl_, 0.0, smooth=0)
++        ph = rnd.uniform(0, 6.28)
++        def pd(fr, gl_=gl_, ph=ph, w=w):
++            gl_.location.x = w * h_ / 5 * math.sin(fr * 0.02 + ph)
++            gl_.scale = (0.6 + 0.4 * abs(math.sin(fr * 0.05 + ph)), 1, 1)
++        _keys(gl_, frames, pd)
+ 
+ 
+ def light_cast(c, color, amount):
 diff --git a/characters/motion.py b/characters/motion.py
-index a5332fe..6b93ee8 100644
+index a5332fe..88e291d 100644
 --- a/characters/motion.py
 +++ b/characters/motion.py
 @@ -16,6 +16,7 @@ from toon import *
@@ -326,6 +622,17 @@ index a5332fe..6b93ee8 100644
                          f += r2.randint(100, 170)
                      else:
                          f += 12
+@@ -226,8 +271,8 @@ class Anim:
+ 
+         fx = cast.face_fx(c)
+         mouth = next(iter(c.mouths.values())).parent if c.mouths else None
+-        strings = [o for o in (c.extras.get("body") or next((o for o in c.root.children if o.name.endswith("_body")), c.root)).children
+-                   if o.type == "MESH" and ("_string" in o.name or o.name in ("riot_tie",))]
++        strings = [o for o in (cast.body_of(c) or c.root).children
++                   if o.type == "MESH" and ("_string" in o.name or o.name.split(".")[0] in ("riot_tie",))]
+         for o in strings:
+             cast.repivot(o)
+             o["r0"] = o.rotation_euler.z
 @@ -235,6 +280,15 @@ class Anim:
          ear_mood = EAR_MOOD.get(e0, 0.0)                       # followers start settled (sticker loops stay exact)
          t_amp, t_per, t_off = TAIL_MOOD.get(e0, TAIL_IDLE)
@@ -342,8 +649,12 @@ index a5332fe..6b93ee8 100644
          flush, dread = FACE_TINT.get(e0, (0, 0))
          spark_on = [fb for fb in changes if self.expr_at(fb) in ("hype", "laughing")]
          str_th = str_w = land = 0.0
-@@ -266,6 +320,8 @@ class Anim:
-         body = c.extras.get("body") or next((o for o in c.root.children if o.name.endswith("_body")), None)
+@@ -263,9 +317,11 @@ class Anim:
+             return tuple(p + (q - p) * w for p, q in ((v[1], n[1]), (v[2], n[2]), (v[4], n[4])))
+ 
+         # torso bend: the body pivots at the hips while the legs stay planted
+-        body = c.extras.get("body") or next((o for o in c.root.children if o.name.endswith("_body")), None)
++        body = cast.body_of(c)
          legs = [(o, o.location.x, o.location.y, o.rotation_euler.z) for o in (body.children if body else ()) if "_leg" in o.name]
          held = {1: "mic" in c.extras, -1: "clipboard" in c.extras or "chips" in c.extras}  # paws busy with a prop
 +        seated = c.extras.get("spot_kind") == "sit" and getattr(self, "stands", False)  # a sitter who gets up / sits down
@@ -365,7 +676,7 @@ index a5332fe..6b93ee8 100644
                      dx, dy = lx - body.location.x, ly - body.location.y
                      leg.location.x, leg.location.y = cs * dx + sn * dy, -sn * dx + cs * dy
 -                    leg.rotation_euler.z = lr - th + rad(ch["stride"]) * (-1 if leg.name.endswith("-1") else 1)  # walking
-+                    leg.rotation_euler.z = lr * (1 - stand_) - th + rad(ch["stride"]) * (-1 if leg.name.endswith("-1") else 1)  # walking
++                    leg.rotation_euler.z = lr * (1 - stand_) - th + rad(ch["stride"]) * (-1 if leg.name.split(".")[0].endswith("-1") else 1)  # walking
 +                    if seated:  # seated legs (half length, knees toward us) stretch out as he stands
 +                        leg.scale.y = 0.5 + 0.5 * stand_
 +                        leg.keyframe_insert("scale", index=1, frame=f)
@@ -1153,7 +1464,7 @@ index 0000000..48be66f
 +            out.append(f"  {fr // FPS // 60}:{fr // FPS % 60:02d}.{fr % FPS:02d} {lt}  {spec:24s} {why}{flag}")
 +    return "\n".join(out) + "\n"
 diff --git a/templates/episode_scene.py b/templates/episode_scene.py
-index 93468b7..2de7154 100644
+index 93468b7..fb3470a 100644
 --- a/templates/episode_scene.py
 +++ b/templates/episode_scene.py
 @@ -1,6 +1,6 @@
@@ -1164,16 +1475,17 @@ index 93468b7..2de7154 100644
  HERE_T = os.path.dirname(os.path.abspath(__file__))
  sys.path.insert(0, os.path.join(HERE_T, "../characters"))
  sys.path.insert(0, HERE_T)
-@@ -18,6 +18,8 @@ vo = lambda i: os.path.join(OUT, "vo", f"{i}.wav")
+@@ -18,6 +18,9 @@ vo = lambda i: os.path.join(OUT, "vo", f"{i}.wav")
  phrase_beats = lambda ev: [ev["start"] + e for e in motion.phrase_ends(vo(ev["id"]))]
  F = layout.from_cfg(cfg)
  V = F.vertical
 +ACT = C.get("act") == "auto"  # automatic acting (Porchlight): lines acted from their words, listeners react
 +motion.RICH = ACT
++locations.CAST_LIGHT_MAX = 0.35 if ACT else 1.0  # night sets never tint faces past readable
  
  # a render job only needs its own frames baked (plus a warm-up so springs and idle settle the same way)
  _rng = os.environ.get("FRAME_RANGE")
-@@ -62,10 +64,24 @@ for B in C["beats"]:
+@@ -62,10 +65,24 @@ for B in C["beats"]:
  
  def seat_of(B, who):
      defaults = S.SEATS["car" if B["location"] == "car" else "default"]
@@ -1202,7 +1514,7 @@ index 93468b7..2de7154 100644
      if isinstance(v, str):  # painted sets: a named spot ("sofa_l", "step", "tower", ...)
          L = locs[B["location"]][0]
          if v not in getattr(L, "spot_names", {}):
-@@ -74,9 +90,46 @@ def seat_of(B, who):
+@@ -74,9 +91,46 @@ def seat_of(B, who):
      return v
  
  
@@ -1251,7 +1563,38 @@ index 93468b7..2de7154 100644
  
  
  def eye_y(B, who="riot"):
-@@ -150,12 +203,25 @@ def is_busy(B, who, f0, f1):
+@@ -85,6 +139,20 @@ def eye_y(B, who="riot"):
+     return hip + 5.4 * s
+ 
+ 
++def light_for(L):
++    """(cel light direction, rim) for characters on set L: the painting's light side, and with "act" a rim of the
++    set's light (moonlight on night sets, warm on sunset ones; a set's JSON "rim" picks its own colour, false none)."""
++    side_ = 1 if getattr(L, "light_from", "left") == "right" else -1
++    rim = None
++    if ACT and L.name in locations.PLATE_SETS:
++        col = getattr(L, "rim", None)
++        if col is None:
++            cast_col, amt = locations.PLATE_SETS[L.name].get("cast", ("#FFFFFF", 0.0))
++            col = "#FFC07A" if "sunset" in L.name else "#B4C8FF" if amt > 0.3 else False
++        rim = (col, 0.1) if col else None
++    return (0.6 * side_, 0.8), rim
++
++
+ # ---------- cast: one instance per (location, character, costume), parked off-set when not in a beat ----------
+ import roster
+ MAKE = {name: (lambda cos, name=name: roster.make(name, cos)) for name in roster.PROFILES}  # every character in the roster
+@@ -94,7 +162,9 @@ for B in C["beats"]:
+         key = (B["location"], who, cos or "", str(seat_of(B, who)))  # a new spot on the same set = its own instance
+         if key not in inst:
+             L, off, _ = locs[B["location"]]
++            cast.CEL_LIGHT, cast.RIM = light_for(L)  # shade and rim-light him for this set's light
+             c = roster.make(who, cos)
++            cast.CEL_LIGHT, cast.RIM = (-0.6, 0.8), None
+             L.seat(c, seat_of(B, who))
+             c.root.location.x += off
+             holder = empty(f"park_{who}_{len(inst)}", None, (0, 0), 0)
+@@ -150,12 +220,25 @@ def is_busy(B, who, f0, f1):
      return any(a < f1 and f0 < b for a, b in B["_inst"][who]["busy"])
  
  
@@ -1280,7 +1623,7 @@ index 93468b7..2de7154 100644
      keys = [(f, 8, "linear")]
      for i in range(n):
          keys += [(f + 6 + i * 10, -128, "back"), (f + 11 + i * 10, -95, "smooth")]
-@@ -170,7 +236,7 @@ def stare(B, who, f, f_end):
+@@ -170,7 +253,7 @@ def stare(B, who, f, f_end):
      a.look(f, 0.0, 3)
      a.look_up(f, 0.0, 3)
      a.expr(f, "suspicious")
@@ -1289,7 +1632,7 @@ index 93468b7..2de7154 100644
  
  
  def dust(B, who, f):
-@@ -179,7 +245,7 @@ def dust(B, who, f):
+@@ -179,7 +262,7 @@ def dust(B, who, f):
      s0 = c.root.scale.x
      col = {"sand": "#F2DDB8", "stone": "#C8C8D0", "wood": "#D8C8B0"}.get(S.SURFACE.get(B["location"]), "#E0D8C8")
      for k, dx in enumerate((-1.3, -0.5, 0.5, 1.3)):
@@ -1298,7 +1641,7 @@ index 93468b7..2de7154 100644
          shape(f"dust_{who}_{f}_{k}_s", ell(0, 0, 0.45 * s0, 0.3 * s0, n=16), col, g, 0.0, ol=0)
          set_visible(g, False, 0)
          set_visible(g, True, f)
-@@ -187,49 +253,309 @@ def dust(B, who, f):
+@@ -187,49 +270,310 @@ def dust(B, who, f):
          for fr, sc_, dy in ((f, 0.3, 0.0), (f + 6, 1.0, 0.25), (f + 13, 0.6, 0.45)):
              g.scale = (sc_, sc_, 1)
              g.location.y = c.root.location.y + (0.2 + dy) * s0 + dy
@@ -1443,6 +1786,7 @@ index 93468b7..2de7154 100644
 +        o = loose_prop(B, who, what, f + S.PUTDOWN_AT, "down")
 +        o.location.x, o.location.y = gx - 1.0 * s0, gy + 0.5 * s0
 +        set_visible(o, False, B["end"])
++        light(f"{o.name}_shadow", ell(0, -0.55, 0.55, 0.12, n=24), "#2A1A10", 0.25, o, -0.05)  # contact shadow
 +        busy(B, who, f, f + S.PUTDOWN_AT + 12)
 +        return
 +    P = S.THROW if move == "throw" else S.DROP
@@ -1616,7 +1960,7 @@ index 93468b7..2de7154 100644
      if ev.get("emote"):  # sweat, anger, sparkle, question, exclaim, heart, zzz
          emote_jobs.append((B, who, ev["emote"], ev["start"], ev["end"] + 10))
      c_ = B["_inst"][who]["c"]
-@@ -238,30 +564,41 @@ def speak(B, ev, listen=True):
+@@ -238,30 +582,41 @@ def speak(B, ev, listen=True):
          set_visible(c_.extras["sweat"], False, ev["end"] + 12)
      if not ev.get("camera"):
          if ev.get("quiet"):  # emotional lines: a slow push-in while they speak
@@ -1667,7 +2011,7 @@ index 93468b7..2de7154 100644
      if B["location"] in locations.PLATE_SETS:  # painted sets: never let the frame run past the painting
          _, off, _ = locs[B["location"]]
          ph = locations.PLATE_O * locations.PLATE_BLEED
-@@ -273,7 +610,7 @@ def framing(B, spec, band=False):
+@@ -273,7 +628,7 @@ def framing(B, spec, band=False):
      return (x, y, o)
  
  
@@ -1676,7 +2020,7 @@ index 93468b7..2de7154 100644
      L, off, _ = locs[B["location"]]
      if spec == "wide" or not spec:
          x, y, o = L.cam if V else L.cam_h
-@@ -289,22 +626,29 @@ def _framing(B, spec, band=False):
+@@ -289,22 +644,29 @@ def _framing(B, spec, band=False):
          return (x + off, y, o)
      names = who.split(",")
      if kind == "ots" and len(names) == 2 and not V:  # over the shoulder: favour the 2nd, the 1st cut by the frame edge
@@ -1712,7 +2056,7 @@ index 93468b7..2de7154 100644
      return (x + off, y, o)
  
  
-@@ -339,8 +683,14 @@ def caption_at(name, body, f_in, f_out):
+@@ -339,8 +701,14 @@ def caption_at(name, body, f_in, f_out):
      return box
  
  
@@ -1729,7 +2073,7 @@ index 93468b7..2de7154 100644
      set_visible(card, False, 0)
      (motion.card_flip_in if flip else motion.pop_in)(card, f_in)
      motion.pop_out(card, f_out, 5)
-@@ -354,6 +704,36 @@ def head_xy(B, who, f):
+@@ -354,6 +722,41 @@ def head_xy(B, who, f):
  
  
  emote_jobs = []  # (B, who, kind, f_in, f_out): placed after the characters are baked
@@ -1763,16 +2107,42 @@ index 93468b7..2de7154 100644
 +        _soft[n] = soft
 +    set_visible(_soft[n], True, f0)
 +    set_visible(_soft[n], False, f1)
++    if "_vig" not in _soft:  # a soft vignette draws the eye to the face
++        _soft["_vig"] = vignette("cu_vignette", 0, 0, 22 * F.aspect / 2 + 1, 12, hud, -0.5, 0.12)
++        set_visible(_soft["_vig"], False, 0)
++    set_visible(_soft["_vig"], True, f0)
++    set_visible(_soft["_vig"], False, f1)
  
  
  # ---------- beats ----------
-@@ -364,8 +744,17 @@ for bi, B in enumerate(C["beats"]):
+@@ -364,8 +767,38 @@ for bi, B in enumerate(C["beats"]):
          CA.cut(st, framing(B, B["camera"]))
      if B.get("move"):  # a slow camera move across the beat: from its camera to "move" (any camera spec)
          CA.push(st + 4, en - 4, framing(B, B["move"]), "smooth")
 +    elif B.get("creep_insert"):  # an insert creeps in
 +        x_, y_, o_ = framing(B, B["camera"])
 +        CA.push(st + 4, en - 4, (x_, y_, o_ * 0.92), "smooth")
++    if ACT and "sunset" in B["location"] and en - st > 300:  # a long sunset scene: the light deepens as it goes
++        dusk = light(f"dusk{bi}", rect(locs[B["location"]][1] - 60, -30, locs[B["location"]][1] + 60, 40), "#6A3A8A", 0.0001, None, 14.2, smooth=0)
++        dm = dusk.material_slots[0].material.copy()
++        dusk.material_slots[0].material = dm
++        for fr_, a_ in ((st, 0.0), (en, 0.12)):
++            dm.diffuse_color[3] = max(0.0001, a_)
++            dm.keyframe_insert("diffuse_color", index=3, frame=fr_)
++        set_visible(dusk, False, 0)
++        set_visible(dusk, True, st)
++        set_visible(dusk, False, en)
++    def wash(name, col, alpha, f0, f1):
++        o = light(name, rect(locs[B["location"]][1] - 60, -30, locs[B["location"]][1] + 60, 40), col, alpha, None, 14.1, smooth=0)
++        set_visible(o, False, 0)
++        set_visible(o, True, f0)
++        set_visible(o, False, f1)
++    if ACT and B["mood"] == "tense":  # tense scenes sit a touch cooler
++        wash(f"cool{bi}", "#2A4A8A", 0.07, st, en)
++    if ACT:
++        for e_ in B["events"]:  # a quiet, emotional line: the colour drains a little
++            if e_.get("quiet"):
++                wash(f"quiet{bi}_{e_['id']}", "#8A8A90", 0.08, e_["start"] - 6, e_["end"] + 12)
 +    if B.get("dutch"):  # tense: the frame tilts a little
 +        CA.tilt(st, en, B["dutch"] * (1 if bi % 2 else -1))
 +    for f0_, f1_ in B.get("dof", []):  # close-ups: the background goes soft
@@ -1785,7 +2155,7 @@ index 93468b7..2de7154 100644
          A(B, who).look(st, 0.0, 4)
          A(B, who).look_up(st, 0.0, 4)
      # on-screen text: the first beat's text is the hook (named "hook" for QA)
-@@ -409,51 +798,78 @@ for bi, B in enumerate(C["beats"]):
+@@ -409,51 +842,84 @@ for bi, B in enumerate(C["beats"]):
              else:
                  caption_at("prevtext", "previously...\n" + props.wrap(ev["previously"], 14.0, 1.2), ev["start"] - 4, ev["end"] + 6)
          speak(B, ev)
@@ -1854,6 +2224,12 @@ index 93468b7..2de7154 100644
          set_visible(g, True, st)
          set_visible(g, False, en)
 +        B.setdefault("_held", {})[who] = (g, what)
++        if ACT and what == "phone" and locations.PLATE_SETS.get(B["location"], {}).get("cast", ("", 0))[1] > 0.3:
++            gl = empty(f"phglow{bi}_{who}", B["_inst"][who]["c"].extras["head"], (0, 1.2), 0.9)  # the screen lights his face
++            glow(f"phglow{bi}_{who}_g", (0, 0), 2.0, 2.0, "#BFE0FF", 0.02, 16, gl, 0.0)
++            set_visible(gl, False, 0)
++            set_visible(gl, True, st)
++            set_visible(gl, False, en)
      # walking to another spot during the beat: "walk_to": {"riot": ["s3", 2.0]} (spot, seconds in); he stays there
      for who, (spot, sec) in B.get("walk_to", {}).items():
          L_ = locs[B["location"]][0]
@@ -1882,7 +2258,7 @@ index 93468b7..2de7154 100644
                  I_ = B["_inst"][who]
                  s0 = I_["c"].root.scale.x
                  cx, _, co = framing(B, B["camera"])
-@@ -470,9 +886,22 @@ for bi, B in enumerate(C["beats"]):
+@@ -470,9 +936,22 @@ for bi, B in enumerate(C["beats"]):
                      set_visible(fp, False, 0)
                      set_visible(fp, True, f0_ + i * motion.STEP)
                      set_visible(fp, False, en)
@@ -1905,7 +2281,7 @@ index 93468b7..2de7154 100644
          for k, (who_, msg) in enumerate(B["chat"]):
              f_in = st + S.CHAT_IN + k * S.CHAT_EVERY
              col = CHAT_COL.get(who_.lower(), "#6A6A7A")
-@@ -480,7 +909,8 @@ for bi, B in enumerate(C["beats"]):
+@@ -480,7 +959,8 @@ for bi, B in enumerate(C["beats"]):
              cam_x = framing(B, B["camera"])[0]
              right = sum(seat_x(B, w) for w in B["cast"]) / max(1, len(B["cast"])) < cam_x  # bubbles go where the cast isn't
              bx = (18.4 - w_ * TS / 2) if right else (-18.4 + w_ * TS / 2)
@@ -1915,7 +2291,7 @@ index 93468b7..2de7154 100644
              bub = empty(f"chat{bi}_{k}", None, (0, 0), 0.5)
              shape(f"chat{bi}_{k}_bg", props.rrect4(-w_ / 2, -1.0, w_ / 2, 1.0, (0.55, 0.55, 0.15, 0.55)), "#FFFFFF", bub, 0.0, smooth=0)
              shape(f"chat{bi}_{k}_bar", props.rrect4(-w_ / 2, 0.2, w_ / 2, 1.0, (0.0, 0.55, 0.55, 0.0)), col, bub, 0.01, ol=0, smooth=0)
-@@ -489,7 +919,15 @@ for bi, B in enumerate(C["beats"]):
+@@ -489,7 +969,15 @@ for bi, B in enumerate(C["beats"]):
              on_hud(bub, (bx, by), TS)
              set_visible(bub, False, 0)
              motion.pop_in(bub, f_in, 6, 1.12, 3)
@@ -1932,7 +2308,7 @@ index 93468b7..2de7154 100644
      # transitions: "transition": "fade" fades in from black (a time jump); letterbox bars for cinematic beats
      if B.get("transition") == "fade" or B.get("letterbox"):
          if B.get("transition") == "fade":
-@@ -543,6 +981,17 @@ for bi, B in enumerate(C["beats"]):
+@@ -543,6 +1031,17 @@ for bi, B in enumerate(C["beats"]):
              set_visible(o_, False, 0)
              set_visible(o_, True, st)
              set_visible(o_, False, en)
@@ -1950,7 +2326,7 @@ index 93468b7..2de7154 100644
      # set effects: a lamp switching on, a flashlight sweeping a dark room (painted sets; positions in painting px)
      for fx in B.get("fx", []):
          L_, off_, _ = locs[B["location"]]
-@@ -551,6 +1000,13 @@ for bi, B in enumerate(C["beats"]):
+@@ -551,22 +1050,42 @@ for bi, B in enumerate(C["beats"]):
              g = empty(f"lamp{bi}", None, pt(*fx["at_px"]), 9.0)
              glow(f"lamp{bi}_g", (0, 0), fx.get("r", 2.4), fx.get("r", 2.4), fx.get("color", "#FFC861"), 0.022, 40, g, 0.0)
              on = st + int(fx.get("at", 0.5) * S.FPS)
@@ -1962,9 +2338,19 @@ index 93468b7..2de7154 100644
 +                motion.reach_to(A(B, w_), on - 10, on + 6, (bx_, min(by_, 8.5)), 1 if bx_ > 0 else -1, "point")
 +                busy(B, w_, on - 10, on + 14)
              room = light(f"lamp{bi}_room", rect(off_ - 60, -30, off_ + 60, 40), fx.get("color", "#FFC861"), fx.get("room", 0.05), None, 14.5, smooth=0)
++            stay = en  # a light switched on stays on while the story stays in this place
++            for B2 in C["beats"][bi + 1:]:
++                if B2["location"] != B["location"]:
++                    break
++                stay = B2["end"]
              for o_ in (g, room):  # the light and the warmth it gives the whole place
                  set_visible(o_, False, 0)
-@@ -562,11 +1018,19 @@ for bi, B in enumerate(C["beats"]):
+                 set_visible(o_, True, on)
+-                set_visible(o_, False, en)
++                set_visible(o_, False, stay)
+         elif fx["type"] == "title":  # the show's title card: big outlined letters that pop in one by one, warm glow behind
+             word = fx.get("text", "PORCHLIGHT")
+             t0 = st + int(fx.get("at", 0.5) * S.FPS)
              tg = empty(f"title{bi}", None, (0, 0), 0.5)
              glow(f"title{bi}_glow", (0, 0.2), 10.0, 2.6, "#FFC861", 0.009, 50, tg, -0.1)
              n_ = len(word)
@@ -1986,7 +2372,7 @@ index 93468b7..2de7154 100644
              if fx.get("sub"):
                  sg = empty(f"title{bi}_sub", tg, (0, -2.6), 0.0)
                  props.outlined_text(f"title{bi}_sub_t", fx["sub"], 1.0, "#FFFFFF", sg, (0, 0), 0.0, 0.06)
-@@ -585,6 +1049,13 @@ for bi, B in enumerate(C["beats"]):
+@@ -585,6 +1104,13 @@ for bi, B in enumerate(C["beats"]):
              set_visible(cg, False, 0)
              motion.pop_in(cg, t0, 6)
              motion.pop_out(cg, t0 + int(fx.get("for", 2.0) * S.FPS), 5)
@@ -2000,7 +2386,7 @@ index 93468b7..2de7154 100644
          elif fx["type"] == "critter":  # a small animal from Porchlight/art/parts/critters, bobbing; ripples on water
              x_, y_ = pt(*fx["at_px"])
              g = empty(f"critter{bi}_{fx['piece']}", None, (x_, y_), fx.get("z", 3.0))
-@@ -593,7 +1064,7 @@ for bi, B in enumerate(C["beats"]):
+@@ -593,7 +1119,7 @@ for bi, B in enumerate(C["beats"]):
              pcs = {}
              w0_ = None
              for pc in dict.fromkeys([p_ for _, p_ in sched] + ([fx["blink"]] if fx.get("blink") else [])):
@@ -2009,7 +2395,35 @@ index 93468b7..2de7154 100644
                  im_ = bpy.data.images.get(path) or bpy.data.images.load(path)
                  w_, h_ = im_.size
                  w0_ = w0_ or w_  # every pose at the first pose's scale
-@@ -688,7 +1159,7 @@ for bi, B in enumerate(C["beats"]):
+@@ -642,6 +1168,14 @@ for bi, B in enumerate(C["beats"]):
+             keys = [(st + int(t * S.FPS), pt(px, py)) for px, py, t in fx["path"]]
+             beam = light(f"torch{bi}_beam", [(0, 0.06, "s"), (1, 0.6, "s"), (1, -0.6, "s"), (0, -0.06, "s")], "#FFE9A8", 0.16, g, 0.0, smooth=0)
+             beam.location = (src[0], src[1], 0)
++            lit_ = []
++            if ACT:  # whoever the beam passes over lights up (a warm wash over the body, strongest at the spot's centre)
++                for w_ in B["cast"]:
++                    c_ = B["_inst"][w_]["c"]
++                    o_ = light(f"torch{bi}_lit_{w_}", ell(0, 5.2, 2.6, 5.6, n=40), "#FFE9A8", 0.0001, c_.root, 1.5)
++                    m_ = o_.material_slots[0].material.copy()
++                    o_.material_slots[0].material = m_
++                    lit_.append((c_, m_))
+             for fr in range(st, en + 1, 2):
+                 i_ = max([k for k, (kf, _) in enumerate(keys) if kf <= fr] or [0])
+                 (f0_, p0), (f1_, p1) = keys[i_], keys[min(i_ + 1, len(keys) - 1)]
+@@ -656,6 +1190,12 @@ for bi, B in enumerate(C["beats"]):
+                 spot.keyframe_insert("location", frame=fr)
+                 beam.keyframe_insert("rotation_euler", index=2, frame=fr)
+                 beam.keyframe_insert("scale", frame=fr)
++                on_ = st + int(fx.get("on", 0.0) * S.FPS) <= fr <= min(en, st + int(fx.get("off", 999) * S.FPS))
++                for c_, m_ in lit_:
++                    cx_, cy_ = c_.root.location.x, c_.root.location.y + 5.0 * c_.root.scale.x
++                    near = max(0.0, 1 - math.hypot(tx - cx_, ty - cy_) / 2.4) if on_ else 0.0
++                    m_.diffuse_color[3] = max(0.0001, 0.3 * near)
++                    m_.keyframe_insert("diffuse_color", index=3, frame=fr)
+             set_visible(g, False, 0)
+             set_visible(g, True, st + int(fx.get("on", 0.0) * S.FPS))
+             set_visible(g, False, min(en, st + int(fx.get("off", 999) * S.FPS)))
+@@ -688,7 +1228,7 @@ for bi, B in enumerate(C["beats"]):
          others = [w for w in B["cast"] if w != "riot"]
          if G["type"] in ("nhie", "mlt"):
              CA.cut(G["card_in"] - 2, framing(B, "wide", band=True))
@@ -2018,7 +2432,7 @@ index 93468b7..2de7154 100644
              motion.present(r, G["card_in"] - 2, hold=G["read_end"] - G["card_in"])
              if C.get("riot_phone"):  # he reads the card off his real phone: left paw brings it up, then down again
                  f0_, f1_ = G["card_in"] - 4, G["read_end"] + 8
-@@ -800,7 +1271,7 @@ for bi, B in enumerate(C["beats"]):
+@@ -800,7 +1340,7 @@ for bi, B in enumerate(C["beats"]):
          afters = [e for e in B["events"] if e["id"].startswith(f"{B['id']}_after")]
          for e in afters:  # follow-up lines: the camera goes to whoever speaks unless the line says otherwise
              speak(B, e)
@@ -2027,7 +2441,7 @@ index 93468b7..2de7154 100644
          if G["laughs"]:
              CA.cut(G["laugh"], framing(B, "wide"))
              for k, w in enumerate(["riot"] + others):
-@@ -821,19 +1292,24 @@ for bi, B in enumerate(C["beats"]):
+@@ -821,19 +1361,24 @@ for bi, B in enumerate(C["beats"]):
                                                   ev_["start"], fmt=F.fmt, y_frac=0.88 if S.SURFACE.get(B["location"]) and B["location"] in locations.PLATE_SETS else 0.8,
                                                   max_chars=22, size=1.45 * TS))  # painted sets: below the bodies
  
@@ -2059,7 +2473,7 @@ index 93468b7..2de7154 100644
  
  # ---------- ending ----------
  EX = -SPACING
-@@ -896,7 +1372,9 @@ for n, (L, off, base) in locs.items():
+@@ -896,7 +1441,9 @@ for n, (L, off, base) in locs.items():
  if os.environ.get("SAVE_BLEND", "1") != "0":
      bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, "scene.blend"))
  frames = os.environ.get("FRAMES")

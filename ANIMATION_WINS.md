@@ -149,50 +149,50 @@ Effort: S = under an hour, M = a few hours, L = a day or more. Items already don
 ## F. Sets and the world
 | # | Win | Effort | Status |
 |---|---|---|---|
-| 121 | Drifting clouds over day skies | M | todo |
-| 122 | A soft moving ripple layer on water | M | todo |
-| 123 | Tiny townsfolk silhouettes walking far away | M | todo |
-| 124 | A bike rolls by in the distance now and then | S | todo |
-| 125 | Stars twinkle on night skies | S | todo |
-| 126 | The moon has a soft breathing glow | S | todo |
-| 127 | Far-off porch lights twinkle in town at night | S | todo |
-| 128 | Dragonflies over the lake by day | S | todo |
-| 129 | A fish jumps now and then (ripple rings) | S | todo |
-| 130 | Pollen / dandelion seeds drifting on summer days | S | todo |
-| 131 | Low fog drifting in the hall at night | S | todo |
-| 132 | TV-style flicker on the apartment wall at night | S | todo |
-| 133 | Heat shimmer over the sand at noon | M | todo |
-| 134 | Puddles after the storm catch the light | M | todo |
-| 135 | Tree sway | M | art |
-| 136 | Ceiling fan turning | S | art |
-| 137 | Curtain sway in the hall | S | art |
-| 138 | Wall shadows behind characters indoors | M | todo |
-| 139 | A lamp switched on stays on for the rest of the scene in that place | S | todo |
-| 140 | The sky colour drifts through a long sunset scene | S | todo |
+| 121 | Drifting clouds over day skies | M | done (set JSON life: `clouds`) |
+| 122 | A soft moving ripple layer on water | M | done (set JSON life: `ripples`) |
+| 123 | Tiny townsfolk silhouettes walking far away | M | done (set JSON life: `townsfolk`) |
+| 124 | A bike rolls by in the distance now and then | S | done (set JSON life: `bike`) |
+| 125 | Stars twinkle on night skies | S | done (set JSON life: `stars`) |
+| 126 | The moon has a soft breathing glow | S | done (set JSON life: `moon`) |
+| 127 | Far-off porch lights twinkle in town at night | S | done (set JSON life: `porchlights`) |
+| 128 | Dragonflies over the lake by day | S | done (set JSON life: `dragonflies`) |
+| 129 | A fish jumps now and then (ripple rings) | S | done (set JSON life: `fish`) |
+| 130 | Pollen / dandelion seeds drifting on summer days | S | done (set JSON life: `pollen`) |
+| 131 | Low fog drifting in the hall at night | S | done (set JSON life: `fog`) |
+| 132 | TV-style flicker on the apartment wall at night | S | done (set JSON life: `flicker`) |
+| 133 | Heat shimmer over the sand at noon | M | done (set JSON life: `heat`) |
+| 134 | Puddles after the storm catch the light | M | done (set JSON life: `puddles`) |
+| 135 | Tree sway | M | art (tree crowns cut out of each painting) |
+| 136 | Ceiling fan turning | S | art (the fan blades cut out) |
+| 137 | Curtain sway in the hall | S | art (the curtain cut out) |
+| 138 | Wall shadows behind characters indoors | M | done (set JSON life: `wall_shadow`) |
+| 139 | A lamp switched on stays on for the rest of the scene in that place | S | done |
+| 140 | The sky colour drifts through a long sunset scene | S | done (with `act`: long sunset scenes deepen toward dusk) |
 
 ## G. Light and colour
 | # | Win | Effort | Status |
 |---|---|---|---|
-| 141 | Shadow side on the cast from the set's light direction | M | todo |
-| 142 | Rim light at night and sunset | M | todo |
-| 143 | Flashlight beam lights the characters it touches | M | todo |
+| 141 | Shadow side on the cast from the set's light direction | M | done (set JSON `light_from`: the cast's shading follows the painting) |
+| 142 | Rim light at night and sunset | M | done (with `act`: moonlight rim at night, warm at sunset; JSON `rim`) |
+| 143 | Flashlight beam lights the characters it touches | M | done (with `act`) |
 | 144 | Eye shine near lamps and in the flashlight | S | todo |
-| 145 | Phone glow on any character holding a phone at night | S | todo |
+| 145 | Phone glow on any character holding a phone at night | S | done (with `act`) |
 | 146 | Warm bounce light from below at sunset | S | todo |
-| 147 | Soft vignette on close-ups | S | todo |
-| 148 | Soft bloom around lamps | S | todo |
-| 149 | Night brightness floor (faces stay readable on phones) | S | todo |
+| 147 | Soft vignette on close-ups | S | done (with close-ups) |
+| 148 | Soft bloom around lamps | S | done (lamps already glow; they breathe: 155) |
+| 149 | Night brightness floor (faces stay readable on phones) | S | done (with `act`: the set's light on faces is capped) |
 | 150 | One colour pass for the whole episode (scenes in the same light match) | M | todo |
-| 151 | Quiet, sad beats a touch less saturated | S | todo |
-| 152 | Tense beats a touch cooler | S | todo |
+| 151 | Quiet, sad beats a touch less saturated | S | done (with `act`) |
+| 152 | Tense beats a touch cooler | S | done (with `act`) |
 | 153 | Silhouette option against a sunset | S | todo |
-| 154 | Lightning flash shows the cast's silhouettes for a frame | S | todo |
-| 155 | Lamp light pools on the floor flicker very slightly | S | todo |
-| 156 | Characters further from a lamp get less of its warmth (graded light) | M | todo |
-| 157 | Flashlight spot is brighter at its centre | S | todo |
+| 154 | Lightning flash shows the cast's silhouettes for a frame | S | no (lightning already flashes the whole frame, cast included) |
+| 155 | Lamp light pools on the floor flicker very slightly | S | done |
+| 156 | Characters further from a lamp get less of its warmth (graded light) | M | done (already: lamp warmth falls off with distance) |
+| 157 | Flashlight spot is brighter at its centre | S | done (already: the spot is a radial glow) |
 | 158 | Close-ups get a slight extra light on the face | S | todo |
-| 159 | Night scenes: moonlight edge on the side facing the moon | M | todo |
-| 160 | Contact shadows under props set down | S | todo |
+| 159 | Night scenes: moonlight edge on the side facing the moon | M | done (the night rim is the moonlight edge) |
+| 160 | Contact shadows under props set down | S | done |
 
 ## H. Camera
 | # | Win | Effort | Status |
