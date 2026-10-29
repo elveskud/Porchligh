@@ -108,12 +108,12 @@ The reference for making every episode look and move right. Read the rules befor
 | C1 | Captions cover characters' bodies at the bottom of the frame | Move captions above or beside faces, or lift the camera framing | S | 1 | done (captions lower on painted sets) |
 | C2 | The game card can cover faces or key set details | Place the card on the emptiest side of the shot | S | 2 | todo |
 | C3 | Insert and close shots go soft (the 4K painting is enlarged) | 8K upscale of key areas, or a separate close-up painting | M | 2 | todo |
-| C4 | Same set, new spot = a jump cut (Riot teleports from tower to sand) | Walk between spots inside a beat, or cut to another angle | M | 1 | done (beat \"walk_to\": walk to another spot mid-scene and stay; between sets, cut) |
+| C4 | Same set, new spot = a jump cut (Riot teleports from tower to sand) | Walk between spots inside a beat, or cut to another angle | M | 1 | done (beat "walk_to": walk to another spot mid-scene and stay; between sets, cut) |
 | C5 | One painting per place = one camera angle; no reverse shots | A second painting per main set (the opposite view) | M | 2 | todo |
 | C6 | The camera never follows someone walking | A follow pan that tracks the walker | S | 2 | todo |
 | C7 | Too many wide shots in a row | A shot-variety rule per scene: wide, then medium, then close | S | 1 | done (rule in part 2) |
 | C8 | Screen direction isn't tracked (left/right continuity) | Note each scene's entry and exit side and keep it consistent | S | 3 | done (rule in part 2: note entry/exit sides) |
-| C9 | The group chat is a caption box, not a phone screen | A messaging graphic: bubbles pop in one by one, no app UI invented | M | 1 | done (beat \"chat\": bubbles pop in one by one, sender colours, pop sound) |
+| C9 | The group chat is a caption box, not a phone screen | A messaging graphic: bubbles pop in one by one, no app UI invented | M | 1 | done (beat "chat": bubbles pop in one by one, sender colours, pop sound; long chats scroll, 4 on screen, and the beat lasts until the last one has been read) |
 | C10 | No intro sequence or episode title card | The ~10 s intro and theme, plus a title card | L | 1 | done (intro beat: night lake camera move + PORCHLIGHT title fx; a written theme tune later) |
 
 ### Sets and the world
@@ -127,8 +127,8 @@ The reference for making every episode look and move right. Read the rules befor
 | W6 | A lamp switching on only adds a glow; the room doesn't brighten | Lamp on and off also changes the set tint and the cast light | S | 1 | done (lamp_on also warms the whole place) |
 | W7 | Painted props (snack bowls, board games) can't be used | Cut key props as pieces that can move or be picked up | M | 3 | todo |
 | W8 | Lord Puddles never moves | Blink, throat puff and an occasional head turn | S | 2 | done (blinks; looks up at the light in the stoop scene) |
-| W9 | The duck only bobs; the script says it "turns away" | Several duck poses switched on cue | S | 2 | done (critter \"poses\" on cue: the duck turns away, then looks back) |
-| W10 | No weather (ep 5 needs the yearly storm) | Rain, lightning flash, wind on plants, darker grade | M | 1 | done (beat \"weather\": \"storm\": rain, double lightning flash, thunder, darker sky, rain sound) |
+| W9 | The duck only bobs; the script says it "turns away" | Several duck poses switched on cue | S | 2 | done (critter "poses" on cue: the duck turns away, then looks back) |
+| W10 | No weather (ep 5 needs the yearly storm) | Rain, lightning flash, wind on plants, darker grade | M | 1 | done (beat "weather": "storm": rain, double lightning flash, thunder, darker sky, rain sound) |
 | W11 | New sets need spots typed in by hand (pixel guessing) | A small tool: click spots and front outlines on the painting | M | 1 | done (tools/spot_picker.html: click spots, fronts, lamps; copy JSON) |
 | W12 | Every set must be repainted to match (Gemini drift between sets) | A style reference pack and a fixed prompt template per set type | S | 1 | done (art/SET_PROMPT_TEMPLATE.md) |
 
@@ -144,7 +144,7 @@ The reference for making every episode look and move right. Read the rules befor
 ### Sound
 | # | Problem | Fix idea | Effort | Prio | Status |
 |---|---|---|---|---|---|
-| S1 | Room tones cut hard between scenes | Short crossfades at scene changes | S | 1 | done (room tones crossfade) |
+| S1 | Room tones cut hard between scenes | Short crossfades at scene changes | S | 1 | done (fixed again 29 Oct: the old fades dipped to near-silence at every cut; now the tones overlap with equal-power fades, beats in the same place share one tone, and the 8 s loops no longer click or jump) |
 | S2 | Voices sound the same near or far | Distance: back spots a little quieter and softer | S | 3 | todo |
 | S3 | Small actions have no sound (phone tap, cushion, chip bag) | A foley set tied to moves (munch, sit, phone) | S | 2 | doing (chip crunch on munch; phone taps and cushion sounds later) |
 | S4 | Music doesn't react to emotional moments | Duck or soften the bed on quiet lines; a soft piano bed | S | 1 | done (music steps back under quiet lines) |
@@ -284,3 +284,19 @@ The reference for making every episode look and move right. Read the rules befor
 ## New problems found (add here after each episode)
 | Episode | Problem | Idea |
 |---|---|---|
+| Pipeline review (29 Oct) | Parallel renders (`--jobs`): blinks, twitches, eye darts, fidgets, tail sway, birds and leaves were timed from each job's first frame, so they jumped where jobs met | Fixed: all timed from the scene's own start; a job only skips ahead |
+| Pipeline review (29 Oct) | A render job starting 33+ s into a beat could show the wrong face, or crash | Fixed |
+| Pipeline review (29 Oct) | `scene.blend` from a parallel render only had the first job's animation | Fixed: an extra job bakes the whole episode and saves it |
+| Pipeline review (29 Oct) | Every parallel job ran Rhubarb on the same voices at once (4x the work, could corrupt the lip-sync cache) | Fixed: `make.py` makes the cues once, before rendering; files are written whole |
+| Pipeline review (29 Oct) | A chat with more bubbles than the beat had time for leaked into the next scene, and 6+ bubbles ran off the bottom | Fixed (see C9) |
+| Pipeline review (29 Oct) | After a `walk_to`, cameras, looks and dust still used the old spot | Fixed: shots and looks after the walk find the walker |
+| Pipeline review (29 Oct) | Emotes stayed where the character was placed (a "?" hung in the air while he walked in) | Fixed: emotes ride with the character |
+| Pipeline review (29 Oct) | Two new characters in one beat got the same spot | Fixed: each gets the next free spot (or a clear error) |
+| Pipeline review (29 Oct) | Title letters were evenly spaced, so the narrow "I" left gaps ("PORCHL I GHT") | Fixed: spaced by each letter's width |
+| Pipeline review (29 Oct) | The camera could drift back to an old shot mid-line when a reaction cut or a quiet-line push met a line's own camera | Fixed in the camera itself |
+| Pipeline review (29 Oct) | Close-ups counted empty spots as bodies, so on a crowded set they backed out to a medium shot | Fixed (Ep 1's apartment close-ups get tighter on a re-render) |
+| Pipeline review (29 Oct) | `--reuse-voices` after editing a line kept the old voice for good | Fixed: a later run without the flag redoes edited lines |
+| Pipeline review (29 Oct) | `doctor.py` said "ALL GOOD" even if the cast code was broken | Fixed; it also checks the Blender version and the Porchlight paintings |
+| Ep 2 | The haunted-house door "creaks open by itself", but doors can't open yet (F1) | Build item: cut the door from `hall_outside_*` and swing it, before Ep 2's stills |
+| Ep 5 | "12 August" must be readable on Walt's calendar; paintings have no text | Use the new `label` fx on the calendar plus an `at:` insert shot |
+| Ep 5, 7 | Grandpa's lantern photo must be seen; the hallway painting's photos are blank shapes (C6) | Build item: a close-up painting of the photo (`GEMINI_PROMPTS.md` C6b) for an insert shot |

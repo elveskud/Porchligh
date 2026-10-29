@@ -8,9 +8,17 @@ This is its own project, separate from the Friendzy advertiser (which only makes
 | File | What it is |
 |---|---|
 | `DECISIONS.md` | Every decision made with the user so far. Read this first. |
-| `archive/old-series-idea/` | The earlier "Campfire Confessions" series idea (SERIES.md + its test episode JSON). Rejected; kept for reference only. |
+| `BIBLE.md` | The series bible: world, cast, the secret and its rules, tone, Friendzy's place. Approved 28 Oct (round 7). |
+| `STORY_MAP.md` | All 40 episodes, written one arc at a time. Arc 1 approved (round 9); arc 2 written, open questions at its end. |
+| `ANIMATION_CHECKLIST.md` | The animation rules (dos and don'ts), the known problems with their status, and the per-episode checklist. |
+| `ANIMATION_TODO.md` | The first 37 animation fixes, and every episode JSON field the Porchlight pipeline understands. |
+| `GEMINI_PROMPTS.md` | Prompts for the Gemini set paintings (in the cast's style). |
+| `CLAUDE.md` | How to work on this project (for Claude sessions). |
+| `pipeline-patches/` | Changes to the shared Blender pipeline waiting to be applied on the Mac (`blender.patch` + `CHANGES.md`). |
 
-Coming next: `BIBLE.md` (world, cast, rules of the secret), `STORY_MAP.md` (all 40 episodes, one paragraph each), then `scripts/` (full episode scripts, in batches of 5).
+Not in this git repo: the art (`art/`), `episodes/` and `tools/` folders, which are in the local `~/Desktop/Porchlight` folder, and the rejected "Campfire Confessions" idea (`archive/old-series-idea/`).
+
+Coming next: the full scripts (`scripts/`, in batches of 5) once the story map is approved, then each approved script as episode JSON (`episodes/`).
 
 ## What lives elsewhere
 - **Animation pipeline:** `~/Desktop/Friendzy/Blender/` (shared with the Shorts). Episodes are rendered with the `episode` template: `python3 make.py episode --script <episode>.json [--format horizontal]`. JSON format: `Blender/README.md` section 5; example: `Blender/templates/examples/campfire-confessions/ep01.json`.

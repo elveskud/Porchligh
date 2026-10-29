@@ -281,3 +281,9 @@ The user approved all of Claude's bible proposals (via a pasted review) and adde
 - Done in 2D, not 3D: cut each object's front out of the painting as a foreground layer, add "sit" and "behind" spots at the right heights, let the episode JSON choose a spot per character.
 - Episode 1: apartment (Bash and Pip on the sofa, Rocco asleep on the beanbag), stoop (Riot sitting on the step under the porch light, Lord Puddles beside him), lake (Riot inside the tower, Rocco on the sand). Stills before the next render.
 - 3D was considered and not chosen: roughly 8–20 million tokens, 10–50x slower renders, and a reversal of "Blender 2D only". A cheaper "2.5D" option (layered sets with camera moves) stays open for later.
+
+## Round 13: the pipeline's next step (29 Oct)
+- **Goal:** write a short script and get a high-end episode out of it, without spending many tokens per episode. So the engine should make the film-making choices itself; the script says what happens, the engine decides how it's shot and acted.
+- **Build order:** 1) an auto-director (shots, reaction cuts, who talks to whom, how hard a line is played), then body and movement, interaction and physics, light and camera polish.
+- No episode renders for now. Small test stills / reference sheets are fine for checking each piece.
+- Everything stays opt-in from the episode JSON, so the Shorts and Episode 1 render exactly as before.

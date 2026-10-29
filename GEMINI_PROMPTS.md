@@ -140,6 +140,8 @@ night: dark stormy window with rain, the hanging lamp on, deep blue shadows. NO 
 inside the room, NO glowing particles.
 ```
 
+The calendar stays blank in the painting: Ep 5's "12 August" is added in Blender with a `label` fx on the calendar page, shown in an `at:` insert shot (`ANIMATION_TODO.md`).
+
 ### C6. Walt's hallway with grandpa's photos (Ep 5, Ep 7) → `walt_hallway_evening.jpg`
 ```
 Image 1 shows the characters of a 2D cartoon series. Image 2 is an approved background from the same series.
@@ -150,6 +152,18 @@ Set: a long hallway in an old family house, evening, warm wall lamps. On the wal
 wooden floorboards, a door at the end slightly open.
 The floor in the middle is open, where characters will stand.
 NO characters, NO animals, NO people, NO text. Wide 16:9, as large as you can make it.
+```
+
+### C6b. Grandpa's lantern photo, close-up (Ep 5, Ep 7) → `grandpa_photo_closeup.jpg` (image 3: `walt_hallway_evening.jpg` from C6)
+For the insert shot when Pip notices the photo: the hallway painting keeps its photos as blank shapes.
+```
+Image 1 shows the characters of a 2D cartoon series. Image 2 is an approved background from the same series.
+Image 3 is a hallway from the series with a row of framed old photos. Draw ONE of those framed photos in close-up,
+filling the picture, in EXACTLY the style of image 2: bold clean black outlines, flat solid colours with ONE darker
+shadow tone, simple rounded shapes, no texture. The frame is old dark wood. Inside the frame, a faded old photo in
+warm sepia tones: an older fox, laughing, holding up a glowing paper lantern by a lake at dusk, a crowd of cartoon
+animals behind him, out of focus. The fox is NOT any character from image 1 (older, grey around the muzzle, a cardigan).
+NO text, NO dates, NO writing on the photo or the frame. Wide 16:9, as large as you can make it.
 ```
 
 ---
