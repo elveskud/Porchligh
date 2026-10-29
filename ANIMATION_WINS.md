@@ -91,22 +91,22 @@ Effort: S = under an hour, M = a few hours, L = a day or more. Items already don
 ## D. Bodies and movement
 | # | Win | Effort | Status |
 |---|---|---|---|
-| 71 | 3/4 body turn (torso, legs and tail turn, not just the head) | L | todo |
-| 72 | Side-view walk cycle | L | todo |
-| 73 | Sit-down move (lower into the seat) | M | todo |
-| 74 | Stand-up move (push up from the seat) | M | todo |
-| 75 | Slouch pose for sitters | M | todo |
-| 76 | Lying back on the beanbag | M | todo |
-| 77 | Walk: a little squash on each footfall | S | todo |
-| 78 | Walk: settle with a small overshoot when stopping | S | todo |
-| 79 | Run (faster steps, lean forward) for hurried entrances | M | todo |
-| 80 | Sneak walk (tiptoe, crouched) for night scenes | M | todo |
-| 81 | Turn toward the direction of travel before walking off | S | todo |
-| 82 | Jump up from a seat on a shock | S | todo |
-| 83 | Crouch / kneel to look at something on the floor | M | todo |
+| 71 | 3/4 body turn (torso, legs and tail turn, not just the head) | L | done (cheap version: bodies narrow as they turn; true 3/4 drawings need new art per character, for your OK) |
+| 72 | Side-view walk cycle | L | art (a profile drawing of each character; reference sheet for your OK first) |
+| 73 | Sit-down move (lower into the seat) | M | done (walking in to a seat sits down on arrival) |
+| 74 | Stand-up move (push up from the seat) | M | done (move `stand`; leaving a seat stands up first) |
+| 75 | Slouch pose for sitters | M | done (move `slouch`) |
+| 76 | Lying back on the beanbag | M | art (a lying-back drawing; the front view can't lie down convincingly) |
+| 77 | Walk: a little squash on each footfall | S | done |
+| 78 | Walk: settle with a small overshoot when stopping | S | done |
+| 79 | Run (faster steps, lean forward) for hurried entrances | M | done (`enter: left run`, "runs in from the left") |
+| 80 | Sneak walk (tiptoe, crouched) for night scenes | M | done (`sneak`, "sneaks in from the right") |
+| 81 | Turn toward the direction of travel before walking off | S | done (a look toward the way out first) |
+| 82 | Jump up from a seat on a shock | S | done (sitters half jump out of the seat) |
+| 83 | Crouch / kneel to look at something on the floor | M | done (move `crouch`) |
 | 84 | Arms crossed as a move (`do: cross`) | S | done (move `cross`) |
-| 85 | Hands in the hoodie pocket (idle) | S | todo |
-| 86 | Lean on a railing or wall | M | todo |
+| 85 | Hands in the hoodie pocket (idle) | S | done (move `pockets`) |
+| 86 | Lean on a railing or wall | M | done (move `lean`) |
 | 87 | Stretch (arms up) move | S | done (move `stretch`) |
 | 88 | Yawn move | S | done (move `yawn`) |
 | 89 | Scratch the head (confused) move | S | done (move `scratch`) |
