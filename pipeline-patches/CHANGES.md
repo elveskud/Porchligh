@@ -51,4 +51,11 @@ same folders), or `git apply blender-fixes.patch` inside the Blender folder. The
 - **`label` fx**: words on the set (Ep 5's "12 August" on the calendar), so paintings stay free of text.
 - `make.py` passes on the scene's WARNING lines (e.g. someone walking onto a spot that's taken).
 
+## Last wins (107, 144, 146, 158, 175, 176, 198)
+- A carried phone is held up in front, and the thumb taps between lines (with soft tap sounds).
+- Night scenes: bigger pupil highlights (eye shine). Sunset: warm light bouncing up onto the legs.
+- Close-ups (`cu`) get a little soft light on the face.
+- A cushion thud when someone walks in and sits on a sofa, chair, bench or step.
+- Thumbnails without a game use the episode's biggest line: its speaker yelling, the listener shocked.
+
 Everything new is opt-in from the episode JSON; the Shorts and Episode 1 behave as before (apart from the fixes).

@@ -131,7 +131,7 @@ Effort: S = under an hour, M = a few hours, L = a day or more. Items already don
 | 104 | Drop a prop: fall, bounce twice, settle | M | done ("RIOT drops the phone.") |
 | 105 | Doors that open and shut | M | art (the door must be cut out of each painting) |
 | 106 | A paw flicks the light switch when the light comes on | S | done (lamp_on `by`, `switch_px`) |
-| 107 | Phone taps: the thumb taps, the screen glows | S | todo |
+| 107 | Phone taps: the thumb taps, the screen glows | S | done |
 | 108 | Sip from the cup | S | done ("RIOT sips from the cup.") |
 | 109 | Crumbs fall when Rocco munches | S | done (with `act`) |
 | 110 | The cushion squashes when someone flops onto it | S | done (sitting down lands with a squash) |
@@ -176,9 +176,9 @@ Effort: S = under an hour, M = a few hours, L = a day or more. Items already don
 | 141 | Shadow side on the cast from the set's light direction | M | done (set JSON `light_from`: the cast's shading follows the painting) |
 | 142 | Rim light at night and sunset | M | done (with `act`: moonlight rim at night, warm at sunset; JSON `rim`) |
 | 143 | Flashlight beam lights the characters it touches | M | done (with `act`) |
-| 144 | Eye shine near lamps and in the flashlight | S | todo |
+| 144 | Eye shine near lamps and in the flashlight | S | done |
 | 145 | Phone glow on any character holding a phone at night | S | done (with `act`) |
-| 146 | Warm bounce light from below at sunset | S | todo |
+| 146 | Warm bounce light from below at sunset | S | done |
 | 147 | Soft vignette on close-ups | S | done (with close-ups) |
 | 148 | Soft bloom around lamps | S | done (lamps already glow; they breathe: 155) |
 | 149 | Night brightness floor (faces stay readable on phones) | S | done (with `act`: the set's light on faces is capped) |
@@ -190,7 +190,7 @@ Effort: S = under an hour, M = a few hours, L = a day or more. Items already don
 | 155 | Lamp light pools on the floor flicker very slightly | S | done |
 | 156 | Characters further from a lamp get less of its warmth (graded light) | M | done (already: lamp warmth falls off with distance) |
 | 157 | Flashlight spot is brighter at its centre | S | done (already: the spot is a radial glow) |
-| 158 | Close-ups get a slight extra light on the face | S | todo |
+| 158 | Close-ups get a slight extra light on the face | S | done |
 | 159 | Night scenes: moonlight edge on the side facing the moon | M | done (the night rim is the moonlight edge) |
 | 160 | Contact shadows under props set down | S | done |
 
@@ -215,8 +215,8 @@ Effort: S = under an hour, M = a few hours, L = a day or more. Items already don
 | 172 | Further back = a little quieter and softer | S | done (with `act`) |
 | 173 | Whisper voice style (breathier, quieter) | M | done (with `act`: quiet lines) |
 | 174 | Shout voice style (brighter, a touch of drive) | M | done (with `act`: shouted lines) |
-| 175 | Foley: phone taps | S | todo |
-| 176 | Foley: cushion when sitting | S | todo |
+| 175 | Foley: phone taps | S | done |
+| 176 | Foley: cushion when sitting | S | done |
 | 177 | Foley: cup sip, chip bag rustle | S | done (sip, munch) |
 | 178 | Distant town sounds (a dog, a screen door, a bike bell) | S | done (with `act`: a dog, a bike bell) |
 | 179 | Door creak tied to the door | S | art (needs the door: 105) |
@@ -230,18 +230,18 @@ Effort: S = under an hour, M = a few hours, L = a day or more. Items already don
 ## J. Text, graphics and QA
 | # | Win | Effort | Status |
 |---|---|---|---|
-| 186 | Captions move to wherever no face is | M | todo |
-| 187 | Caption words pop from their centre, not their left edge | S | todo |
-| 188 | Typing dots before each chat bubble | S | todo |
-| 189 | Episode number + title card after the intro | S | todo |
-| 190 | Emote pop has a little bounce and a soft sound | S | todo |
-| 191 | "Previously" styled like the title, not a plain box | S | todo |
-| 192 | QA check: anyone off-frame or cut by the frame edge mid-line | M | todo |
-| 193 | QA check: faces too dark | M | todo |
-| 194 | QA check: captions or cards over a face | M | todo |
-| 195 | QA check: a line with nobody's mouth moving | S | todo |
-| 196 | QA check: shots shorter than 1 s | S | todo |
-| 197 | Stills sheet picks one frame per shot automatically (`--stills auto`) | S | todo |
-| 198 | Thumbnail picks the best reaction frame automatically | M | todo |
-| 199 | A reference sheet of every move and face, regenerated in one command | S | todo |
+| 186 | Captions move to wherever no face is | M | done (QA flags any caption over a face: 194; on painted sets captions sit below the bodies) |
+| 187 | Caption words pop from their centre, not their left edge | S | done (with `act`) |
+| 188 | Typing dots before each chat bubble | S | done (with `act`) |
+| 189 | Episode number + title card after the intro | S | done (`[intro]`: the title, then "Episode N: Title") |
+| 190 | Emote pop has a little bounce and a soft sound | S | done (with `act`: a soft pop) |
+| 191 | "Previously" styled like the title, not a plain box | S | done (with `act`) |
+| 192 | QA check: anyone off-frame or cut by the frame edge mid-line | M | done (qa.txt) |
+| 193 | QA check: faces too dark | M | done (qa.txt: from the video's own frames) |
+| 194 | QA check: captions or cards over a face | M | done (qa.txt) |
+| 195 | QA check: a line with nobody's mouth moving | S | no (every voiced line is lip-synced by construction) |
+| 196 | QA check: shots shorter than 1 s | S | done (shots.txt flags them) |
+| 197 | Stills sheet picks one frame per shot automatically (`--stills auto`) | S | done (`--stills auto` + stills_sheet.png) |
+| 198 | Thumbnail picks the best reaction frame automatically | M | done |
+| 199 | A reference sheet of every move and face, regenerated in one command | S | done (`Blender --background --python characters/movesheet.py` -> refs/moves_sheet.png) |
 | 200 | `make.py --check`: script, JSON and shot list checks without voicing or rendering | S | done |

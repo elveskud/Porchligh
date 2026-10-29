@@ -29,7 +29,7 @@ ROCCO: ...
 | `== Chapter \| place, time \| who (costume), who` | a new scene. Places: lake (day/night), stoop (sunset/night), apartment, hall. A change of time of day fades through black. The first scene gets letterbox bars (the cold open). |
 | `NAME: words` | a line |
 | `NAME (nervous): words` | a face: happy, hype, cocky, shocked, nervous, suspicious, sad, soft, scared, embarrassed, determined, yelling, smug, pouting, sleepy... |
-| `NAME (take): words` | a move: take, laugh, cheer, nervous, yell, shrug, facepalm, wave, thumbs, present, hop, double_take, point, munch, fan, shiver, stare |
+| `NAME (take): words` | a move: take, laugh, cheer, nervous, yell, shrug, facepalm, wave, thumbs, present, hop, double_take, point, munch, fan, shiver, stare, cross, hips, nod, shake, clap, count, peace, horns, rock, gloom, yawn, stretch, scratch, chuckle, crouch, pockets, lean, slouch (see `Blender/characters/refs/moves_sheet.png`) |
 | `NAME (whispers): words` | a quiet, emotional line (also `quietly`, `softly`) |
 | `NAME (joke): words` | a punchline: snap zoom and a soft sting |
 | `NAME (to pip): words` / `(looks up)` / `(looks at bash)` / `(reaction rocco)` | who it's said to, where they look, whose face we cut to after |
@@ -37,9 +37,12 @@ ROCCO: ...
 | `NAME enters left.` / `NAME exits right.` | walking on and off |
 | `NAME walks to the step.` | walking to another spot mid-scene |
 | `NAME sits on the sofa l.` / `stands at the tower.` | where they are (otherwise sitters take free seats on their own) |
-| `NAME is asleep.` / `NAME carries a phone.` | asleep for the scene / a phone, flashlight or cup in the paw |
+| `NAME is asleep.` / `NAME carries a phone.` | asleep for the scene / a phone, flashlight or cup in the paw (a phone is held up and tapped between lines) |
+| `RIOT high-fives BASH.` / `bumps` / `hugs` / `puts a paw on PIP's shoulder` | two of them touching: they step to arm's length, the camera takes a two-shot |
+| `BASH picks up the cup.` / `puts down` / `throws it at the lake` / `drops` / `sips` | props: thrown things fly, bounce and splash |
 | `[text: ...]` `[card: Later that night.]` `[sfx: door]` | on-screen text, a time card, a sound |
-| `[storm]` `[fade]` `[letterbox]` `[mood: tense]` `[hold: 2]` | weather, transitions, the scene's mood (tense tilts the camera), seconds to hold at the end |
+| `[storm]` `[fade]` `[whip]` `[letterbox]` `[mood: tense]` `[hold: 2]` | weather, transitions (fade through black, whip pan), the scene's mood (`normal`, `tense` tilts the camera, `party`, `soft` = piano), seconds to hold at the end |
+| `[intro]` | the Porchlight title with the full theme |
 | `[camera: close riot]` | frame the scene yourself (the engine then leaves this scene's camera alone) |
 | `[chat]` then `Riot: LIGHT'S ON` lines, then a blank line | the group chat |
 | `[game nhie: prompt \| target \| confession]` | Never Have I Ever (also `mlt: prompt \| target`, `td: dare \| player \| performance`). Real app prompts only. |
