@@ -291,3 +291,9 @@ The user approved all of Claude's bible proposals (via a pasted review) and adde
 ## Round 14: side views (29 Oct)
 - **Side views approved** ("perfect"): the code-drawn side view of each of the four, with their walk and run cycles (`art/side-views/side_*.png`, `Blender/characters/profile.py`). Drawn from Gemini turnarounds and walks; Gemini's off-model bits (Pip's grey patch, Bash's black trousers, Riot's grey paws) left out.
 - Gemini pictures are guides only (turnarounds, walks, poses, paws); the cast stays code-drawn.
+
+## Round 15: outside tools (29 Oct)
+- **No acting by the user**: nothing that needs filming yourself (MediaPipe performance capture dropped).
+- **Only tools free for commercial use** (the channel earns money): no paid tools, no non-commercial licenses.
+- Shortlist that passes (licenses as found by web search, to re-check on each repo before building): WhisperX (BSD-2; word timing), Segment Anything 2 (Apache-2.0; cut-outs), Depth Anything V2 **Small only** (Apache-2.0), Real-ESRGAN anime (BSD-3; upscaling), bhadresh-savani distilbert emotion (Apache-2.0; faces from lines).
+- Rejected: MoMask (trained on AMASS, non-commercial), the big Depth Anything models (non-commercial), LaMa's big-lama weights (no license found; our own fill instead), j-hartmann emotion model (no license found), AI sound-effect models (unclear/non-commercial), paid Blender add-ons.
