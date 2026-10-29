@@ -120,31 +120,31 @@ Effort: S = under an hour, M = a few hours, L = a day or more. Items already don
 ## E. Interaction and physics
 | # | Win | Effort | Status |
 |---|---|---|---|
-| 96 | Reach a paw to a point on the set (switch, door, table) | M | todo |
-| 97 | High five between neighbours | M | todo |
-| 98 | Shoulder bump | M | todo |
-| 99 | Friendly hug (family-safe) | M | todo |
-| 100 | Hand on a friend's shoulder (comfort) | M | todo |
-| 101 | Pick a prop up: it appears in the paw on contact | M | todo |
-| 102 | Put a prop down | M | todo |
-| 103 | Throw a prop: an arc, a spin, a bounce | M | todo |
-| 104 | Drop a prop: fall, bounce twice, settle | M | todo |
-| 105 | Doors that open and shut | M | art |
-| 106 | A paw flicks the light switch when the light comes on | S | todo |
+| 96 | Reach a paw to a point on the set (switch, door, table) | M | done (move `reach` with `reach_px`) |
+| 97 | High five between neighbours | M | done ("RIOT high-fives BASH.") |
+| 98 | Shoulder bump | M | done ("RIOT bumps BASH.") |
+| 99 | Friendly hug (family-safe) | M | done ("BASH hugs PIP.") |
+| 100 | Hand on a friend's shoulder (comfort) | M | done ("PIP puts a paw on BASH's shoulder.") |
+| 101 | Pick a prop up: it appears in the paw on contact | M | done ("RIOT picks up the cup.") |
+| 102 | Put a prop down | M | done ("RIOT puts down the cup.") |
+| 103 | Throw a prop: an arc, a spin, a bounce | M | done ("RIOT throws the cup (at BASH).": arc, spin, two bounces) |
+| 104 | Drop a prop: fall, bounce twice, settle | M | done ("RIOT drops the phone.") |
+| 105 | Doors that open and shut | M | art (the door must be cut out of each painting) |
+| 106 | A paw flicks the light switch when the light comes on | S | done (lamp_on `by`, `switch_px`) |
 | 107 | Phone taps: the thumb taps, the screen glows | S | todo |
-| 108 | Sip from the cup | S | todo |
-| 109 | Crumbs fall when Rocco munches | S | todo |
-| 110 | The cushion squashes when someone flops onto it | S | todo |
-| 111 | A splash when something hits the lake | S | todo |
-| 112 | Little sand puffs on each footstep on the beach | S | todo |
-| 113 | Storm wind pushes ears and tails | S | todo |
-| 114 | Rain darkens the cast a little (wet) | S | todo |
-| 115 | Fur stands on end on a big scare | S | todo |
-| 116 | Props wobble on thunder | S | todo |
-| 117 | Walkers pass in front of or behind people, never through them | S | todo |
-| 118 | A character's shadow lengthens as they walk away | S | todo |
-| 119 | Seated characters bounce a little when a neighbour sits | S | todo |
-| 120 | Carried props swing a little on a walk | S | todo |
+| 108 | Sip from the cup | S | done ("RIOT sips from the cup.") |
+| 109 | Crumbs fall when Rocco munches | S | done (with `act`) |
+| 110 | The cushion squashes when someone flops onto it | S | done (sitting down lands with a squash) |
+| 111 | A splash when something hits the lake | S | done (a throw on the lake splashes) |
+| 112 | Little sand puffs on each footstep on the beach | S | done (with `act`) |
+| 113 | Storm wind pushes ears and tails | S | done (with `act`) |
+| 114 | Rain darkens the cast a little (wet) | S | done (the storm's dark wash already covers the cast) |
+| 115 | Fur stands on end on a big scare | S | done (with `act`: tail puffs, ears up) |
+| 116 | Props wobble on thunder | S | done (with `act`) |
+| 117 | Walkers pass in front of or behind people, never through them | S | done (walkers pass in front) |
+| 118 | A character's shadow lengthens as they walk away | S | no (walks are sideways across a front view; a lengthening shadow wouldn't read) |
+| 119 | Seated characters bounce a little when a neighbour sits | S | done |
+| 120 | Carried props swing a little on a walk | S | done (props ride in the paw and swing with the arm) |
 
 ## F. Sets and the world
 | # | Win | Effort | Status |
