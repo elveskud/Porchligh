@@ -57,36 +57,36 @@ Effort: S = under an hour, M = a few hours, L = a day or more. Items already don
 ## C. Acting and faces
 | # | Win | Effort | Status |
 |---|---|---|---|
-| 41 | Questions end with a brow lift and a small head tilt | S | todo |
-| 42 | Nod on "yes / yeah / okay / sure" | S | todo |
-| 43 | Head shake on "no / nope / nah" | S | todo |
-| 44 | Shrug on "I don't know / dunno / whatever" | S | todo |
-| 45 | Wave on "hi / hey / bye / see ya" | S | todo |
-| 46 | Point at the listener on a forceful "you" | S | todo |
-| 47 | Facepalm on "seriously / ugh / oh no" | S | todo |
-| 48 | A sigh (breath + slump) before a line that starts with "..." | S | todo |
-| 49 | Listeners smile at a punchline | S | todo |
-| 50 | Listeners' eyes widen at a shout | S | todo |
-| 51 | A small chuckle from listeners after a joke | S | todo |
-| 52 | Ears perk when someone says your name | S | todo |
-| 53 | Tail wags faster on energetic lines | S | todo |
-| 54 | Speakers glance away mid long line, then back (thinking) | S | todo |
-| 55 | Eye darts in the pause before a line (deciding what to say) | S | todo |
-| 56 | Mouth shapes lead the sound by a frame (reads as better sync) | S | todo |
-| 57 | Closed-mouth sounds (m, b, p) always show a closed mouth | S | todo |
-| 58 | Bash breathes harder after he yells | S | todo |
-| 59 | Rocco's resting face is half-lidded (his deadpan) | S | todo |
-| 60 | Riot taps a foot while waiting | S | todo |
-| 61 | Bash cracks his knuckles while waiting | S | todo |
-| 62 | Pip fiddles with his hoodie strings while waiting | S | todo |
-| 63 | Listening poses by mood: crossed arms when sceptical | M | todo |
-| 64 | Hands on hips (Riot proud, Bash defiant) | S | todo |
-| 65 | Laugh variants per character with different lengths | S | todo |
-| 66 | Bigger takes: stretch up, eyes pop, snap back | S | todo |
-| 67 | More idle variations, picked at random per character | M | todo |
-| 68 | Asleep characters stir once in a long scene | S | todo |
-| 69 | Characters blink when a cut lands on them | S | todo |
-| 70 | Pupils follow a walking character | S | todo |
+| 41 | Questions end with a brow lift and a small head tilt | S | done |
+| 42 | Nod on "yes / yeah / okay / sure" | S | done |
+| 43 | Head shake on "no / nope / nah" | S | done |
+| 44 | Shrug on "I don't know / dunno / whatever" | S | done |
+| 45 | Wave on "hi / hey / bye / see ya" | S | done |
+| 46 | Point at the listener on a forceful "you" | S | done |
+| 47 | Facepalm on "seriously / ugh / oh no" | S | done |
+| 48 | A sigh (breath + slump) before a line that starts with "..." | S | done |
+| 49 | Listeners smile at a punchline | S | done |
+| 50 | Listeners' eyes widen at a shout | S | done |
+| 51 | A small chuckle from listeners after a joke | S | done |
+| 52 | Ears perk when someone says your name | S | done |
+| 53 | Tail wags faster on energetic lines | S | done |
+| 54 | Speakers glance away mid long line, then back (thinking) | S | done |
+| 55 | Eye darts in the pause before a line (deciding what to say) | S | done |
+| 56 | Mouth shapes lead the sound by a frame (reads as better sync) | S | done (with `act`) |
+| 57 | Closed-mouth sounds (m, b, p) always show a closed mouth | S | done (with `act`) |
+| 58 | Bash breathes harder after he yells | S | done |
+| 59 | Rocco's resting face is half-lidded (his deadpan) | S | done |
+| 60 | Riot taps a foot while waiting | S | done |
+| 61 | Bash cracks his knuckles while waiting | S | done |
+| 62 | Pip fiddles with his hoodie strings while waiting | S | done |
+| 63 | Listening poses by mood: crossed arms when sceptical | M | done |
+| 64 | Hands on hips (Riot proud, Bash defiant) | S | done (move `hips`) |
+| 65 | Laugh variants per character with different lengths | S | done |
+| 66 | Bigger takes: stretch up, eyes pop, snap back | S | done |
+| 67 | More idle variations, picked at random per character | M | done |
+| 68 | Asleep characters stir once in a long scene | S | done |
+| 69 | Characters blink when a cut lands on them | S | done |
+| 70 | Pupils follow a walking character | S | done |
 
 ## D. Bodies and movement
 | # | Win | Effort | Status |
@@ -104,18 +104,18 @@ Effort: S = under an hour, M = a few hours, L = a day or more. Items already don
 | 81 | Turn toward the direction of travel before walking off | S | todo |
 | 82 | Jump up from a seat on a shock | S | todo |
 | 83 | Crouch / kneel to look at something on the floor | M | todo |
-| 84 | Arms crossed as a move (`do: cross`) | S | todo |
+| 84 | Arms crossed as a move (`do: cross`) | S | done (move `cross`) |
 | 85 | Hands in the hoodie pocket (idle) | S | todo |
 | 86 | Lean on a railing or wall | M | todo |
-| 87 | Stretch (arms up) move | S | todo |
-| 88 | Yawn move | S | todo |
-| 89 | Scratch the head (confused) move | S | todo |
-| 90 | Count on fingers, available from the JSON | S | todo |
-| 91 | Clap, available from the JSON | S | todo |
-| 92 | Peace / horns / thumbs signs, available from the JSON | S | todo |
-| 93 | Rock-on head-bang, available from the JSON | S | todo |
-| 94 | Gloom (rain cloud) defeat, available from the JSON | S | todo |
-| 95 | Hop of joy on a small win | S | todo |
+| 87 | Stretch (arms up) move | S | done (move `stretch`) |
+| 88 | Yawn move | S | done (move `yawn`) |
+| 89 | Scratch the head (confused) move | S | done (move `scratch`) |
+| 90 | Count on fingers, available from the JSON | S | done (move `count`) |
+| 91 | Clap, available from the JSON | S | done (move `clap`) |
+| 92 | Peace / horns / thumbs signs, available from the JSON | S | done (moves `peace`, `horns`, `thumbs`) |
+| 93 | Rock-on head-bang, available from the JSON | S | done (move `rock`) |
+| 94 | Gloom (rain cloud) defeat, available from the JSON | S | done (move `gloom`) |
+| 95 | Hop of joy on a small win | S | done (move `hop`, already built) |
 
 ## E. Interaction and physics
 | # | Win | Effort | Status |

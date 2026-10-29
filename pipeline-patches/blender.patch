@@ -11,6 +11,18 @@ index d0dcbf0..62a6695 100644
  
  ## 6. Instagram carousels and story images (`carousel.py`)
  ```bash
+diff --git a/characters/cast.py b/characters/cast.py
+index 9c90740..c49dc4f 100644
+--- a/characters/cast.py
++++ b/characters/cast.py
+@@ -37,6 +37,7 @@ EXPRESSIONS = {
+     "scared":    ("shock", -28, 0.34, (0.00, 0.02), 1.30),     # wide eyes, brows high, tiny pupils
+     "determined": ("grit",  16, -0.06, (0.00, 0.00), 0.80),    # jaw set, brows down
+     "asleep":    ("flat",    0, -0.14, (0.00, -0.03), 0.10),   # eyes shut (pair with the "sleep" move)
++    "deadpan":   ("flat",    2, -0.04, (0.00, 0.00), 0.62),    # Rocco's resting face: half-lidded, unimpressed
+ }
+ ARC_EYES = {"laughing"}  # expressions drawn with closed ^ ^ eyes
+ 
 diff --git a/characters/layout.py b/characters/layout.py
 index b831fb2..cd685ab 100644
 --- a/characters/layout.py
@@ -135,10 +147,49 @@ index f7e5724..10e31c9 100644
                  g.location.y = max(y0, y1) - (abs(y1 - y0)) * u
                  g.rotation_euler.z = math.sin(u * 10 + i) * 1.2
 diff --git a/characters/motion.py b/characters/motion.py
-index a5332fe..b773aac 100644
+index a5332fe..e18d3c8 100644
 --- a/characters/motion.py
 +++ b/characters/motion.py
-@@ -155,7 +155,11 @@ class Anim:
+@@ -89,6 +89,8 @@ BROW_ASYM = {"suspicious": 0.13, "smug": 0.15, "cocky": 0.11, "side_eye_l": 0.1,
+ PUPIL_SIZE = {"scared": 0.62, "shocked": 0.68, "yelling": 0.82, "suspicious": 0.85, "nervous": 0.9, "hype": 1.15, "happy": 1.06, "pouting": 1.32}
+ SLOW_BLINK = {"sleepy", "smug", "cocky", "sad", "soft"}  # lazy, slow blinks
+ IMPACTS = []  # frames where a take hits in this scene: CamAnim punches in and shakes on each
++RICH = False  # richer acting (Porchlight "act": "auto"): fidget variety, bigger takes, laugh variety, stirring sleepers,
++              # mouths a frame ahead of the sound with closed m/b/p shapes kept. Off: the Shorts move exactly as before
+ 
+ 
+ def _fidget_riot(t, n):   # can't sit still: two quick bounces, head bob, tail goes
+@@ -109,6 +111,29 @@ def _fidget_rocco(t, n):  # a chip to the mouth, two chews
+     return {"face-1": w, "face_y": -1.25 * w, "jaw": 0.12 * chew, "head_y": -0.03 * chew}
+ 
+ FIDGETS = {"riot": (_fidget_riot, 20), "bash": (_fidget_bash, 28), "pip": (_fidget_pip, 26), "rocco": (_fidget_rocco, 30)}
++
++
++def _fidget_tap(t, n):    # Riot: taps a foot, impatient, head bobbing along
++    k = envelope(t, 0, n, 4)
++    tap = abs(math.sin(math.pi * t / 6)) * k
++    return {"stride": 7 * tap, "head_y": 0.02 * tap, "lean": -1.5 * k}
++
++def _fidget_knuckles(t, n):  # Bash: paws together in front of his chest, a crack, a roll of the shoulders
++    k = envelope(t, 0, n, 6)
++    crack = 1.0 if 12 <= t < 15 or 20 <= t < 23 else 0.0
++    return {f"reach{s}": (s * 0.25, 4.6, k, "fist") for s in (1, -1)} | {"sq": 1 + 0.02 * crack, "head_rot": 3 * math.sin(t * 0.4) * k}
++
++def _fidget_strings(t, n):  # Pip: tugs his hoodie strings, eyes down
++    k = envelope(t, 0, n, 6)
++    tug = math.sin(math.pi * t / 7) * k
++    return {"reach1": (0.35, 5.2 - 0.2 * tug, k, "fist"), "head_y": -0.05 * k, "tw1": 6 * tug}
++
++def _fidget_yawn(t, n):   # Rocco: a slow yawn, head back, a stretch of the jaw
++    k = math.sin(math.pi * clamp01(t / n))
++    return {"jaw": 0.18 * k, "mouth": 1 + 0.5 * k, "head_rot": -4 * k, "head_y": 0.04 * k, "sq": 1 + 0.02 * k}
++
++FIDGETS_MORE = {"riot": [(_fidget_tap, 30)], "bash": [(_fidget_knuckles, 34)], "pip": [(_fidget_strings, 30)],
++                "rocco": [(_fidget_yawn, 36)]}
+ FACE_TINT = {"yelling": (0.38, 0), "laughing": (0.14, 0), "pouting": (0.2, 0), "shocked": (0, 0.9), "nervous": (0, 0.2),
+              "disgusted": (0, 0.3), "embarrassed": (0.32, 0), "scared": (0, 0.6), "sad": (0, 0.12)}
+ 
+@@ -155,7 +180,11 @@ class Anim:
          prev = self.ups[-1][1]
          self.ups += [(frame, prev, "smooth"), (frame + dur, v, "look")]
  
@@ -151,7 +202,7 @@ index a5332fe..b773aac 100644
          c = self.c
          head = c.extras["head"]
          hy0, hx0 = head.location.y, head.location.x
-@@ -167,7 +171,8 @@ class Anim:
+@@ -167,7 +196,8 @@ class Anim:
          if tail is not None and "r0" not in tail:
              tail["r0"] = tail.rotation_euler.z
          # expressions snap over 2 frames; each change gets a blink (hides the swap) and a small accent
@@ -161,7 +212,7 @@ index a5332fe..b773aac 100644
          changes = [fb for (fa, na), (fb, nb) in zip(ex, ex[1:]) if fb > f0 and na != nb]
          rnd = random.Random(self.seed)
          blinks, twitches = [], []
-@@ -175,14 +180,17 @@ class Anim:
+@@ -175,14 +205,17 @@ class Anim:
              arc = self.expr_at(fb - 3) in cast.ARC_EYES or self.expr_at(fb) in cast.ARC_EYES
              if not arc and all(abs(fb - 2 - b) >= 12 for b in blinks):
                  blinks.append(fb - 2)
@@ -183,7 +234,7 @@ index a5332fe..b773aac 100644
              f += rnd.randint(80, 150)
          darts = []  # little eye movements during holds, so a held face never looks frozen
          if self.idle:
-@@ -190,18 +198,21 @@ class Anim:
+@@ -190,21 +223,31 @@ class Anim:
                  if f0 <= fb < f1 - 4 and self.expr_at(fb) not in cast.ARC_EYES and all(abs(fb - b) >= 8 for b in blinks):
                      blinks.append(fb)
              r2 = random.Random(self.seed * 7 + 1)
@@ -197,6 +248,9 @@ index a5332fe..b773aac 100644
                  f += r2.randint(22, 55)
 -            for b in sorted(blinks):  # one blink in four is a quick double blink
 -                if r2.random() < 0.25 and b + 5 < f1 - 3 and all(abs(b + 5 - o) >= 4 for o in blinks if o != b):
++            for b in getattr(self, "extra_blinks", ()):  # asked-for blinks (e.g. as a cut lands on this character)
++                if f0 <= b < f1 - 3 and self.expr_at(b) not in cast.ARC_EYES and all(abs(b - o) >= 6 for o in blinks):
++                    blinks.append(b)
 +            for b in sorted(blinks):  # one blink in four is a quick double blink (decided per blink, not per job)
 +                if random.Random(self.seed * 31 + b).random() < 0.25 and b + 5 < f1 - 3 and \
 +                        all(abs(b + 5 - o) >= 4 for o in blinks if o != b):
@@ -209,9 +263,18 @@ index a5332fe..b773aac 100644
 +                busy = {fr for fr in range(origin, f1 + 1) if any(L(fr) for L in self.layers)}
 +                f = origin + r2.randint(50, 110)
                  while f < f1 - n_ - 6:
-                     if not any(fr in busy for fr in range(f - 8, f + n_ + 8)) and self.expr_at(f) not in ("laughing", "sleepy"):
-                         self.add(lambda fr, g=f: fn(fr - g, n_) if g <= fr < g + n_ else None)
-@@ -235,6 +246,15 @@ class Anim:
+-                    if not any(fr in busy for fr in range(f - 8, f + n_ + 8)) and self.expr_at(f) not in ("laughing", "sleepy"):
+-                        self.add(lambda fr, g=f: fn(fr - g, n_) if g <= fr < g + n_ else None)
++                    if not any(fr in busy for fr in range(f - 8, f + n_ + 8)) and self.expr_at(f) not in ("laughing", "sleepy", "asleep"):
++                        fn_, n2 = (fn, n_)
++                        if RICH and c.name in FIDGETS_MORE:  # a different habit now and then, never the same loop
++                            opts = [(fn, n_)] + FIDGETS_MORE[c.name]
++                            fn_, n2 = opts[random.Random(self.seed * 17 + f).randrange(len(opts))]
++                        self.add(lambda fr, g=f, fn_=fn_, n2=n2: fn_(fr - g, n2) if g <= fr < g + n2 else None)
+                         f += r2.randint(100, 170)
+                     else:
+                         f += 12
+@@ -235,6 +278,15 @@ class Anim:
          ear_mood = EAR_MOOD.get(e0, 0.0)                       # followers start settled (sticker loops stay exact)
          t_amp, t_per, t_off = TAIL_MOOD.get(e0, TAIL_IDLE)
          t_ph = 2 * math.pi * (f0 + self.seed) / t_per
@@ -227,7 +290,52 @@ index a5332fe..b773aac 100644
          flush, dread = FACE_TINT.get(e0, (0, 0))
          spark_on = [fb for fb in changes if self.expr_at(fb) in ("hype", "laughing")]
          str_th = str_w = land = 0.0
-@@ -925,25 +945,7 @@ MOUTHS = {  # (open, half-open, closed) for lip sync; Riot's closed mouth is his
+@@ -562,7 +614,7 @@ def impact(c, f, dur=3):
+ def take(a, f, expr="shocked", big=1.0, impact_frame=True):
+     """Shocked take: squash down (anticipation) -> stretch + pop up -> fall -> land squash -> wobble settle."""
+     a.expr(f + 3, expr)
+-    big *= 1.25 * ACT
++    big *= 1.25 * ACT * (1.25 if RICH else 1.0)  # RICH: a bigger cartoon take
+     seen = curve(f, sorted(getattr(a, "turns", [(0, 0.0, "linear")]), key=lambda k: k[0]))  # recoil away from what we see
+     away = -math.copysign(1, seen) if abs(seen) > 0.2 else 0.0
+     if impact_frame:
+@@ -600,6 +652,9 @@ def laugh(a, f0, f1, beat=None):
+     beat = beat or {"pip": 3.5, "rocco": 7.0}.get(style, 4 + (a.seed % 7) * 0.5)
+     amp = (0.85 + (a.seed % 5) * 0.08) * ACT * {"pip": 0.6, "rocco": 0.5}.get(style, 1.0)
+     rock, lean = 12 + a.seed % 9, -1 if a.seed % 3 == 0 else 1
++    if RICH:  # every laugh a little different: speed, size, rock
++        rv = random.Random(a.seed * 13 + f0)
++        beat, amp, rock = beat * rv.uniform(0.85, 1.2), amp * rv.uniform(0.85, 1.15), rock + rv.randint(-3, 3)
+     def L(fr):
+         k = envelope(fr, f0, f1, 5)
+         if not k:
+@@ -809,10 +864,21 @@ def fan(a, f, f_end, side=1):
+ 
+ 
+ def sleep(a, f, f_end):
+-    """Fast asleep: head tipped to one side and dropped, big slow breaths, the body sags a little."""
+-    a.add(lambda fr: None if not (f <= fr <= f_end) else {
+-        "head_rot": 14 * min(1.0, (fr - f) / 8.0), "head_y": -0.12 * min(1.0, (fr - f) / 8.0),
+-        "sq": 1 + 0.025 * math.sin((fr - f) * 2 * math.pi / 70), "y": -0.06 * min(1.0, (fr - f) / 8.0)})
++    """Fast asleep: head tipped to one side and dropped, big slow breaths, the body sags a little.
++    RICH: in a long scene the sleeper stirs once (head lifts, an ear twitches, settles again)."""
++    stir = f + int((f_end - f) * 0.55) if RICH and f_end - f > 150 else None
++    def L(fr):
++        if not (f <= fr <= f_end):
++            return None
++        d = {"head_rot": 14 * min(1.0, (fr - f) / 8.0), "head_y": -0.12 * min(1.0, (fr - f) / 8.0),
++             "sq": 1 + 0.025 * math.sin((fr - f) * 2 * math.pi / 70), "y": -0.06 * min(1.0, (fr - f) / 8.0)}
++        if stir is not None and 0 <= fr - stir < 30:
++            u = math.sin(math.pi * (fr - stir) / 30)
++            d["head_rot"] -= 9 * u
++            d["head_y"] += 0.08 * u
++            d["tw1"] = 12 * math.sin(math.pi * (fr - stir) / 10) if fr - stir < 10 else 0.0
++        return d
++    a.add(L)
+ 
+ 
+ def shiver(a, f, f_end):
+@@ -925,25 +991,7 @@ MOUTHS = {  # (open, half-open, closed) for lip sync; Riot's closed mouth is his
  }
  
  
@@ -254,7 +362,141 @@ index a5332fe..b773aac 100644
  
  
  def _syllables(word):
-@@ -1233,13 +1235,29 @@ class CamAnim:
+@@ -1022,11 +1070,11 @@ def talk(a, start, wav_path, mouths=None, energy=1.0, text=None, gestures=True):
+                 key = rest if shape_ == "X" else "v" + shape_
+             else:
+                 key = o if v > 0.5 else m if v > 0.18 else cl
+-            if prev is not None and key != prev and held < 2:  # mouths on 2s: no 1-frame flicker
+-                key = prev
+-            held = held + 1 if key == prev else 1
+-            prev = key
+-            mouth_at(a.c, key, fr0 + i)
++            if prev is not None and key != prev and held < 2 and not (RICH and key == "vA"):  # mouths on 2s: no
++                key = prev                                                                      # 1-frame flicker
++            held = held + 1 if key == prev else 1                                               # (RICH: m/b/p
++            prev = key                                                                          # always close)
++            mouth_at(a.c, key, fr0 + i - (1 if RICH and i else 0))  # RICH: a frame ahead of the sound reads in sync
+         mouth_at(a.c, cast.EXPRESSIONS[a.expr_at(fr0 + len(rms))][0], fr0 + len(rms))
+     a.at(start, events, prio=2)
+     sm = np.convolve(rms, np.ones(4) / 4, mode="same")
+@@ -1116,6 +1164,116 @@ def listen(a, f0, f1, toward=0.0, beats=(), nod=1.0):
+     a.add(L)
+ 
+ 
++def nod(a, f, n=2, size=1.0):
++    """Little nods ("yeah", "okay"): the head dips n times, brows lift a touch."""
++    def L(fr):
++        t = fr - f
++        if not (0 <= t < n * 8):
++            return None
++        u = math.sin(math.pi * (t % 8) / 8)
++        return {"head_y": -0.1 * size * ACT * u, "brow": 0.03 * u}
++    a.add(L)
++
++
++def head_shake(a, f, n=3, size=1.0):
++    """No: the head turns side to side n times, settling back."""
++    def L(fr):
++        t = fr - f
++        if not (0 <= t < n * 7 + 4):
++            return None
++        k = envelope(t, 0, n * 7 + 4, 3)
++        return {"turn": 0.22 * size * ACT * math.sin(2 * math.pi * t / 7) * k, "brow": -0.02 * k}
++    a.add(L)
++
++
++def question(a, f, f_end, side=1):
++    """A question's end: brows up and the head tilts a little toward the listener."""
++    a.add(lambda fr: None if not (f <= fr <= f_end + 10) else {
++        "brow": 0.08 * envelope(fr, f, f_end + 10, 5), "head_rot": -5 * side * ACT * envelope(fr, f, f_end + 10, 5)})
++
++
++def chuckle(a, f, n=22):
++    """A small laugh to oneself: shoulders bounce a few times, head goes back a little."""
++    def L(fr):
++        t = fr - f
++        if not (0 <= t < n):
++            return None
++        k = envelope(t, 0, n, 4)
++        return {"y": 0.05 * ACT * k * abs(math.sin(math.pi * t / 5)), "sq": 1 + 0.015 * k, "head_rot": -3 * k}
++    a.add(L)
++
++
++def ear_perk(a, f, n=16):
++    """Ears go up (someone said his name)."""
++    a.add(lambda fr: None if not (f <= fr < f + n) else {"ears": -14 * math.sin(math.pi * (fr - f) / n)})
++
++
++def tail_wag(a, f0, f1, amp=12):
++    """A quicker, bigger tail wag (an energetic line)."""
++    a.add(lambda fr: None if not (f0 <= fr <= f1) else {"tail": amp * math.sin(2 * math.pi * (fr - f0) / 8) * envelope(fr, f0, f1, 6)})
++
++
++def heavy_breath(a, f, n=45):
++    """Out of breath after yelling: big chest heaves that calm down."""
++    a.add(lambda fr: None if not (f <= fr < f + n) else {
++        "sq": 1 + 0.035 * math.sin(2 * math.pi * (fr - f) / 15) * (1 - (fr - f) / n),
++        "head_y": -0.03 * (1 - (fr - f) / n)})
++
++
++def sigh(a, f, n=16):
++    """A sigh before a line: the body sinks and the head drops, then it comes back up to speak."""
++    a.add(lambda fr: None if not (f <= fr < f + n) else {
++        "sq": 1 - 0.04 * math.sin(math.pi * (fr - f) / n), "head_y": -0.08 * math.sin(math.pi * (fr - f) / n)})
++
++
++def cross_arms(a, f0, f1):
++    """Arms folded across the chest (sceptical listening)."""
++    a.add(lambda fr: None if not (f0 <= fr <= f1) else {
++        "arm1": curve(fr, [(f0, 10, "linear"), (f0 + 6, -18, "back"), (f1 - 6, -18, "linear"), (f1, 10, "smooth")]),
++        "arm-1": curve(fr, [(f0, 10, "linear"), (f0 + 7, -24, "back"), (f1 - 6, -24, "linear"), (f1, 10, "smooth")]),
++        "elbow1": curve(fr, [(f0, 8, "linear"), (f0 + 6, -112, "back"), (f1 - 6, -112, "linear"), (f1, 8, "smooth")]),
++        "elbow-1": curve(fr, [(f0, 8, "linear"), (f0 + 7, -100, "back"), (f1 - 6, -100, "linear"), (f1, 8, "smooth")]),
++        "hand1": "paw", "hand-1": "paw"})
++
++
++def stretch(a, f, hold=16):
++    """A big stretch: both arms up, the body stretches tall, then relaxes."""
++    a.add(lambda fr: None if not (f <= fr <= f + hold + 24) else {
++        f"arm{s}": curve(fr, [(f, 10, "linear"), (f + 10, 150, "out"), (f + 10 + hold, 156, "linear"), (f + hold + 24, 10, "smooth")])
++        for s in (1, -1)} | {
++        f"elbow{s}": curve(fr, [(f, 8, "linear"), (f + 10, 18, "out"), (f + hold + 24, 8, "smooth")]) for s in (1, -1)} | {
++        "sq": curve(fr, [(f, 1, "linear"), (f + 10, 1.07, "out"), (f + 10 + hold, 1.07, "linear"), (f + hold + 24, 1, "smooth")]),
++        "head_rot": -4 * envelope(fr, f, f + hold + 24, 8), "hand1": "open", "hand-1": "open"})
++
++
++def yawn(a, f, n=40):
++    """A slow yawn: head back, jaw wide, eyes squeezed, a paw comes up to the mouth."""
++    a.expr(f + 4, "sleepy")
++    a.add(lambda fr: None if not (f <= fr < f + n) else {
++        "jaw": 0.2 * math.sin(math.pi * (fr - f) / n), "mouth": 1 + 0.6 * math.sin(math.pi * (fr - f) / n),
++        "head_rot": -5 * math.sin(math.pi * (fr - f) / n), "head_y": 0.05 * math.sin(math.pi * (fr - f) / n),
++        "face1": 0.8 * envelope(fr, f + 6, f + n - 4, 6), "face_y": -1.2})
++
++
++def scratch(a, f, n=36, side=1):
++    """Scratching the head, puzzled: a paw goes up to the top of the head and rubs."""
++    hy = a.c.extras["head"].location.y
++    a.add(lambda fr: None if not (f <= fr < f + n) else {
++        f"reach{side}": (0.7 * side + 0.12 * math.sin((fr - f) * 1.6), hy + 2.7, envelope(fr, f, f + n, 7), "open"),
++        "head_rot": 6 * side * envelope(fr, f, f + n, 7)})
++
++
++def hips(a, f, hold=30):
++    """Paws on the hips: proud (Riot) or defiant (Bash)."""
++    a.add(lambda fr: None if not (f <= fr <= f + hold + 10) else {
++        f"arm{s}": curve(fr, [(f, 10, "linear"), (f + 6, 38, "back"), (f + hold, 38, "linear"), (f + hold + 9, 10, "smooth")])
++        for s in (1, -1)} | {
++        f"elbow{s}": curve(fr, [(f, 8, "linear"), (f + 6, -78, "back"), (f + hold, -78, "linear"), (f + hold + 9, 8, "smooth")])
++        for s in (1, -1)} | {"hand1": "fist" if f + 4 <= fr <= f + hold + 4 else "paw",
++                             "hand-1": "fist" if f + 4 <= fr <= f + hold + 4 else "paw",
++                             "y": 0.06 * envelope(fr, f, f + hold + 9, 6), "head_rot": 3 * envelope(fr, f, f + hold + 9, 6)})
++
++
+ # ---------- props & camera ----------
+ 
+ def _key_scale(o, f, s):
+@@ -1233,13 +1391,29 @@ class CamAnim:
          self.parallax = [(o, f, Vector(o.location)) for o, f in parallax]
          self.x0, self.y0 = start[0], start[1]
  
@@ -286,7 +528,7 @@ index a5332fe..b773aac 100644
  
      def intro(self, dur=12, zoom=1.1):
          """Open a touch wide and settle onto the start framing, so the hook's first frames already move.
-@@ -1249,7 +1267,7 @@ class CamAnim:
+@@ -1249,7 +1423,7 @@ class CamAnim:
          self.push(0, dur, (x, y, o), "out")
  
      def cut(self, f, to):
@@ -295,7 +537,7 @@ index a5332fe..b773aac 100644
  
      def hud(self, obj, ref_ortho=22.0):
          """Keep a camera-parented overlay (captions, stickers) the same on-screen size while the camera zooms."""
-@@ -1258,13 +1276,18 @@ class CamAnim:
+@@ -1258,13 +1432,18 @@ class CamAnim:
      def shake(self, f, dur, amp):
          self.shakes.append((f, dur, amp))
  
@@ -315,7 +557,7 @@ index a5332fe..b773aac 100644
          ks = ks + [(f1 + 1, ks[-1][1], "linear")]
          for fr in range(f0, f1 + 1):
              x, y, o = (curve(fr, [(k, v[i], e) for k, v, e in ks]) for i in range(3))
-@@ -1285,9 +1308,17 @@ class CamAnim:
+@@ -1285,9 +1464,17 @@ class CamAnim:
              self.cam.data.ortho_scale = o
              self.cam.keyframe_insert("location", frame=fr)
              self.cam.data.keyframe_insert("ortho_scale", frame=fr)
@@ -585,10 +827,27 @@ index 0000000..34a0f3e
 +            out.append(f"  {fr // FPS // 60}:{fr // FPS % 60:02d}.{fr % FPS:02d} {lt}  {spec:24s} {why}{flag}")
 +    return "\n".join(out) + "\n"
 diff --git a/templates/episode_scene.py b/templates/episode_scene.py
-index 93468b7..94a6688 100644
+index 93468b7..7783105 100644
 --- a/templates/episode_scene.py
 +++ b/templates/episode_scene.py
-@@ -62,10 +62,24 @@ for B in C["beats"]:
+@@ -1,6 +1,6 @@
+ # Blender scene for series episodes (episode_script.py): plays a JSON list of beats across locations.
+ #   Blender --background --python episode_scene.py -- <video dir>   (FRAMES=10,200 stills | FRAME_RANGE=a-b one render job)
+-import os, sys, json
++import os, sys, json, re
+ HERE_T = os.path.dirname(os.path.abspath(__file__))
+ sys.path.insert(0, os.path.join(HERE_T, "../characters"))
+ sys.path.insert(0, HERE_T)
+@@ -18,6 +18,8 @@ vo = lambda i: os.path.join(OUT, "vo", f"{i}.wav")
+ phrase_beats = lambda ev: [ev["start"] + e for e in motion.phrase_ends(vo(ev["id"]))]
+ F = layout.from_cfg(cfg)
+ V = F.vertical
++ACT = C.get("act") == "auto"  # automatic acting (Porchlight): lines acted from their words, listeners react
++motion.RICH = ACT
+ 
+ # a render job only needs its own frames baked (plus a warm-up so springs and idle settle the same way)
+ _rng = os.environ.get("FRAME_RANGE")
+@@ -62,10 +64,24 @@ for B in C["beats"]:
  
  def seat_of(B, who):
      defaults = S.SEATS["car" if B["location"] == "car" else "default"]
@@ -617,7 +876,7 @@ index 93468b7..94a6688 100644
      if isinstance(v, str):  # painted sets: a named spot ("sofa_l", "step", "tower", ...)
          L = locs[B["location"]][0]
          if v not in getattr(L, "spot_names", {}):
-@@ -74,9 +88,39 @@ def seat_of(B, who):
+@@ -74,9 +90,39 @@ def seat_of(B, who):
      return v
  
  
@@ -659,7 +918,7 @@ index 93468b7..94a6688 100644
  
  
  def eye_y(B, who="riot"):
-@@ -150,8 +194,8 @@ def is_busy(B, who, f0, f1):
+@@ -150,8 +196,8 @@ def is_busy(B, who, f0, f1):
      return any(a < f1 and f0 < b for a, b in B["_inst"][who]["busy"])
  
  
@@ -670,7 +929,7 @@ index 93468b7..94a6688 100644
  
  
  def munch(a, f, n=2):
-@@ -170,7 +214,7 @@ def stare(B, who, f, f_end):
+@@ -170,7 +216,7 @@ def stare(B, who, f, f_end):
      a.look(f, 0.0, 3)
      a.look_up(f, 0.0, 3)
      a.expr(f, "suspicious")
@@ -679,7 +938,7 @@ index 93468b7..94a6688 100644
  
  
  def dust(B, who, f):
-@@ -179,7 +223,7 @@ def dust(B, who, f):
+@@ -179,7 +225,7 @@ def dust(B, who, f):
      s0 = c.root.scale.x
      col = {"sand": "#F2DDB8", "stone": "#C8C8D0", "wood": "#D8C8B0"}.get(S.SURFACE.get(B["location"]), "#E0D8C8")
      for k, dx in enumerate((-1.3, -0.5, 0.5, 1.3)):
@@ -688,7 +947,7 @@ index 93468b7..94a6688 100644
          shape(f"dust_{who}_{f}_{k}_s", ell(0, 0, 0.45 * s0, 0.3 * s0, n=16), col, g, 0.0, ol=0)
          set_visible(g, False, 0)
          set_visible(g, True, f)
-@@ -187,7 +231,7 @@ def dust(B, who, f):
+@@ -187,7 +233,7 @@ def dust(B, who, f):
          for fr, sc_, dy in ((f, 0.3, 0.0), (f + 6, 1.0, 0.25), (f + 13, 0.6, 0.45)):
              g.scale = (sc_, sc_, 1)
              g.location.y = c.root.location.y + (0.2 + dy) * s0 + dy
@@ -697,7 +956,7 @@ index 93468b7..94a6688 100644
              g.keyframe_insert("scale", frame=fr)
              g.keyframe_insert("location", frame=fr)
  
-@@ -198,7 +242,7 @@ def do_move(B, who, move, f, f_end, target=None):
+@@ -198,38 +244,129 @@ def do_move(B, who, move, f, f_end, target=None):
              locs[B["location"]][0].spot_kind[seat_of(B, who)] == "stand":
          dust(B, who, f + {"hop": 12, "take": 12, "cheer": 14}[move])
      tgt = target or next((w for w in B["cast"] if w != who), who)
@@ -705,8 +964,105 @@ index 93468b7..94a6688 100644
 +    sd = side(B, who, tgt, f) if tgt != who else 1.0
      end = {"take": f + 30, "laugh": f_end + 30, "cheer": f + 30, "nervous": f_end + 10, "yell": f_end, "shrug": f + 26,
             "facepalm": f + 40, "wave": f + 30, "thumbs": f + 30, "present": f_end, "hop": f + 14, "double_take": f + 50,
-            "point": f + 34, "munch": f + 34, "fan": f_end, "shiver": f_end, "stare": f_end}[move]
-@@ -216,20 +260,26 @@ def speak(B, ev, listen=True):
+-           "point": f + 34, "munch": f + 34, "fan": f_end, "shiver": f_end, "stare": f_end}[move]
++           "point": f + 34, "munch": f + 34, "fan": f_end, "shiver": f_end, "stare": f_end,
++           "cross": f_end + 20, "hips": max(f + 30, f_end), "nod": f + 16, "shake": f + 25, "clap": f_end, "count": f + 52,
++           "peace": f + 42, "horns": f + 42, "rock": f + 48, "gloom": f_end + 20, "yawn": f + 40, "stretch": f + 40,
++           "scratch": f + 36, "chuckle": f + 22}[move]
+     {"stare": lambda: stare(B, who, f, end), "shiver": lambda: motion.shiver(a, f, end), "fan": lambda: motion.fan(a, f, end), "take": lambda: motion.take(a, f, "shocked"), "laugh": lambda: motion.laugh(a, f, end),
+      "cheer": lambda: motion.cheer(a, f), "nervous": lambda: motion.nervous(a, f, end),
+      "yell": lambda: motion.yell(a, f, end, int(sd)), "shrug": lambda: motion.shrug(a, f),
+      "facepalm": lambda: motion.facepalm(a, f), "wave": lambda: motion.wave(a, f, end),
+      "thumbs": lambda: motion.thumbs_up(a, f), "present": lambda: motion.present(a, f, hold=max(10, f_end - f - 8)),
+      "hop": lambda: motion.hop(a, f), "double_take": lambda: motion.double_take(a, f, sd),
+-     "point": lambda: motion.point_at(a, f, int(sd), hold=26), "munch": lambda: munch(a, f, 2)}[move]()
++     "point": lambda: motion.point_at(a, f, int(sd), hold=26), "munch": lambda: munch(a, f, 2),
++     "cross": lambda: motion.cross_arms(a, f, end), "hips": lambda: motion.hips(a, f, hold=end - f - 10),
++     "nod": lambda: motion.nod(a, f, 2), "shake": lambda: motion.head_shake(a, f, 3), "clap": lambda: motion.clap(a, f, end),
++     "count": lambda: motion.count(a, f, 3), "peace": lambda: motion.sign(a, f, "peace"), "horns": lambda: motion.sign(a, f, "horns"),
++     "rock": lambda: motion.rock_on(a, f), "gloom": lambda: motion.gloom(a, f, end - 20), "yawn": lambda: motion.yawn(a, f),
++     "stretch": lambda: motion.stretch(a, f), "scratch": lambda: motion.scratch(a, f, side=int(sd)),
++     "chuckle": lambda: motion.chuckle(a, f)}[move]()
+     busy(B, who, f, end)
+ 
+ 
++YES = {"yes", "yeah", "yep", "okay", "ok", "sure", "right", "totally", "fine", "deal"}
++NO = {"no", "nope", "nah", "never"}
++DUNNO = ("i don't know", "i dont know", "dunno", "whatever", "no idea", "who knows")
++HELLO = {"hi", "hey", "hello", "bye", "later", "night"}
++UGH = ("seriously", "ugh", "oh no", "come on")
++
++
++def auto_act(B, ev):
++    """"act": "auto": the speaker acts the words (a nod on "yeah", a shake on "no", a shrug on "dunno", a wave on
++    "hey", a point on a forceful "you", a facepalm on "seriously"), questions end on a brow lift and a tilt, long
++    lines get a thinking glance away, energetic lines wag the tail, and the eyes dart in the pause before a line."""
++    who, st_, en_ = ev["who"], ev["start"], ev["end"]
++    a = A(B, who)
++    text = ev["text"]
++    low = text.lower()
++    words = re.findall(r"[a-z']+", low)
++    at_word = lambda k: st_ + int(k / max(1, len(words)) * (en_ - st_))
++    to = ev.get("to") if ev.get("to") in B["cast"] else None
++    sd = side(B, who, to, st_) if to else 1.0
++    if not ev.get("do") and not ev.get("silent") and not is_busy(B, who, st_, en_):
++        k = next((i for i, w in enumerate(words) if w in YES), None)
++        kn = next((i for i, w in enumerate(words) if w in NO), None)
++        if any(p in low for p in DUNNO):
++            motion.shrug(a, st_ + 2)
++            busy(B, who, st_, st_ + 26)
++        elif words and (words[0] in HELLO or "bye" in words):
++            motion.wave(a, st_ + 2, min(en_, st_ + 34), int(sd))
++            busy(B, who, st_, st_ + 34)
++        elif any(p in low for p in UGH):
++            motion.facepalm(a, st_ + 2)
++            busy(B, who, st_, st_ + 40)
++        elif to and ev.get("energy", 1.0) >= 1.25 and "you" in words:
++            motion.point_at(a, at_word(words.index("you")), int(sd), hold=22, expr=a.expr_at(st_))
++            busy(B, who, st_, st_ + 34)
++        elif k is not None and k < 3:
++            motion.nod(a, at_word(k), 2)
++        elif kn is not None and kn < 3:
++            motion.head_shake(a, at_word(kn), 3)
++    if text.rstrip().endswith("?") and not ev.get("silent"):
++        motion.question(a, max(st_, en_ - 14), en_, int(sd))
++    if en_ - st_ > 90 and not ev.get("quiet"):  # thinking mid-line: a glance away, then back
++        g0 = st_ + int((en_ - st_) * 0.4)
++        a.look(g0, -0.35 * sd, 5)
++        a.look(g0 + 22, 0.5 * sd, 6)
++    a.look(st_ - 12, 0.15, 2)  # eye darts in the beat before speaking
++    a.look(st_ - 9, -0.1, 2)
++    if ev.get("energy", 1.0) >= 1.25:
++        motion.tail_wag(a, st_, en_)
++        if who == "bash":
++            motion.heavy_breath(a, en_ + 2)
++    if low.lstrip().startswith("...") and not ev.get("quiet"):
++        motion.sigh(a, st_ - 16)
++
++
++def react(B, ev, other):
++    """"act": "auto": a listener's reaction to a line: smiles and a chuckle at a joke, a flinch at a shout, ears up
++    at their own name, folded arms when they're sceptical."""
++    o = A(B, other)
++    st_, en_ = ev["start"], ev["end"]
++    if other in B.get("asleep", []):
++        return
++    prev = o.expr_at(st_)
++    if ev.get("punch") and prev not in ("laughing", "asleep"):
++        o.expr(en_ + 2, "happy")
++        if not is_busy(B, other, en_, en_ + 24):
++            motion.chuckle(o, en_ + 4)
++    elif ev.get("energy", 1.0) >= 1.4 and prev not in ("shocked", "asleep"):
++        o.expr(st_ + 3, "shocked")
++        o.expr(st_ + 22, prev)
++    names = re.findall(r"[a-z]+", ev["text"].lower())
++    if other in names:
++        motion.ear_perk(o, st_ + int(names.index(other) / max(1, len(names)) * (en_ - st_)))
++    if prev == "suspicious" and en_ - st_ > 60 and not is_busy(B, other, st_, en_):
++        motion.cross_arms(o, st_ + 2, en_ + 8)
++
++
+ def speak(B, ev, listen=True):
      who = ev["who"]
      a = A(B, who)
      if ev.get("face"):
@@ -736,7 +1092,7 @@ index 93468b7..94a6688 100644
      if ev.get("emote"):  # sweat, anger, sparkle, question, exclaim, heart, zzz
          emote_jobs.append((B, who, ev["emote"], ev["start"], ev["end"] + 10))
      c_ = B["_inst"][who]["c"]
-@@ -238,13 +288,13 @@ def speak(B, ev, listen=True):
+@@ -238,30 +375,41 @@ def speak(B, ev, listen=True):
          set_visible(c_.extras["sweat"], False, ev["end"] + 12)
      if not ev.get("camera"):
          if ev.get("quiet"):  # emotional lines: a slow push-in while they speak
@@ -754,9 +1110,15 @@ index 93468b7..94a6688 100644
      if who == "bash" and ev.get("face") == "yelling":
          CA.shake(ev["start"] + 2, 8, 0.15)
      if ev.get("do"):
-@@ -254,14 +304,21 @@ def speak(B, ev, listen=True):
+         do_move(B, who, ev["do"], ev["start"] + 2, ev["end"], ev.get("target"))
++    if ACT:
++        auto_act(B, ev)
+     if listen:
+         for other in B["cast"]:
              if other == who:
                  continue
++            if ACT:
++                react(B, ev, other)
              o = A(B, other)
 -            o.look(ev["start"] - 3, side(B, other, who), 6)
 +            o.look(ev["start"] - 3, side(B, other, who, ev["start"]), 6)
@@ -780,7 +1142,7 @@ index 93468b7..94a6688 100644
      if B["location"] in locations.PLATE_SETS:  # painted sets: never let the frame run past the painting
          _, off, _ = locs[B["location"]]
          ph = locations.PLATE_O * locations.PLATE_BLEED
-@@ -273,7 +330,7 @@ def framing(B, spec, band=False):
+@@ -273,7 +421,7 @@ def framing(B, spec, band=False):
      return (x, y, o)
  
  
@@ -789,7 +1151,7 @@ index 93468b7..94a6688 100644
      L, off, _ = locs[B["location"]]
      if spec == "wide" or not spec:
          x, y, o = L.cam if V else L.cam_h
-@@ -289,22 +346,29 @@ def _framing(B, spec, band=False):
+@@ -289,22 +437,29 @@ def _framing(B, spec, band=False):
          return (x + off, y, o)
      names = who.split(",")
      if kind == "ots" and len(names) == 2 and not V:  # over the shoulder: favour the 2nd, the 1st cut by the frame edge
@@ -825,7 +1187,7 @@ index 93468b7..94a6688 100644
      return (x + off, y, o)
  
  
-@@ -339,8 +403,14 @@ def caption_at(name, body, f_in, f_out):
+@@ -339,8 +494,14 @@ def caption_at(name, body, f_in, f_out):
      return box
  
  
@@ -842,7 +1204,7 @@ index 93468b7..94a6688 100644
      set_visible(card, False, 0)
      (motion.card_flip_in if flip else motion.pop_in)(card, f_in)
      motion.pop_out(card, f_out, 5)
-@@ -354,6 +424,36 @@ def head_xy(B, who, f):
+@@ -354,6 +515,36 @@ def head_xy(B, who, f):
  
  
  emote_jobs = []  # (B, who, kind, f_in, f_out): placed after the characters are baked
@@ -879,7 +1241,7 @@ index 93468b7..94a6688 100644
  
  
  # ---------- beats ----------
-@@ -364,6 +464,15 @@ for bi, B in enumerate(C["beats"]):
+@@ -364,8 +555,17 @@ for bi, B in enumerate(C["beats"]):
          CA.cut(st, framing(B, B["camera"]))
      if B.get("move"):  # a slow camera move across the beat: from its camera to "move" (any camera spec)
          CA.push(st + 4, en - 4, framing(B, B["move"]), "smooth")
@@ -893,9 +1255,12 @@ index 93468b7..94a6688 100644
 +    if B.get("exit_wide"):
 +        CA.cut(B["exit_wide"], framing(B, "wide"))
      for who in B["cast"]:
-         A(B, who).expr(st, "hype" if who == "riot" else "happy")
+-        A(B, who).expr(st, "hype" if who == "riot" else "happy")
++        A(B, who).expr(st, "hype" if who == "riot" else "deadpan" if (ACT and who == "rocco") else "happy")
          A(B, who).look(st, 0.0, 4)
-@@ -409,8 +518,13 @@ for bi, B in enumerate(C["beats"]):
+         A(B, who).look_up(st, 0.0, 4)
+     # on-screen text: the first beat's text is the hook (named "hook" for QA)
+@@ -409,8 +609,17 @@ for bi, B in enumerate(C["beats"]):
              else:
                  caption_at("prevtext", "previously...\n" + props.wrap(ev["previously"], 14.0, 1.2), ev["start"] - 4, ev["end"] + 6)
          speak(B, ev)
@@ -903,6 +1268,10 @@ index 93468b7..94a6688 100644
 -            CA.push(ev["start"] - 10, ev["start"] - 1, framing(B, ev["camera"]), "out")
 +        if ev.get("camera") and ev.get("cut"):  # a cut lands a few frames before the line (or on its big move)
 +            CA.cut(ev.get("cut_at", ev["start"] - 3), framing(B, ev["camera"], fr=ev["start"], toward=ev.get("to"), favor=ev.get("favor")))
++            kind_, _, who_ = ev["camera"].partition(":")
++            if ACT and kind_ in ("close", "cu") and who_ in B["cast"]:  # a blink as the cut lands on someone
++                I_a = A(B, who_)
++                I_a.extra_blinks = getattr(I_a, "extra_blinks", []) + [ev.get("cut_at", ev["start"] - 3) + 5]
 +        elif ev.get("camera"):
 +            CA.push(ev["start"] - 10, ev["start"] - 1, framing(B, ev["camera"], fr=ev["start"]), "out")
 +        if ev.get("creep"):  # a long hold: a slow push, so the shot never sits dead still
@@ -911,7 +1280,19 @@ index 93468b7..94a6688 100644
      # walking on and off: from just past the frame edge to their spot, or from their spot off the side
      if B.get("enter") or B.get("exit"):
          cx, _, co = framing(B, B["camera"])
-@@ -446,10 +560,15 @@ for bi, B in enumerate(C["beats"]):
+@@ -420,6 +629,11 @@ for bi, B in enumerate(C["beats"]):
+             off_x = ((cx - hw_ if sd == "left" else cx + hw_) - seat_x(B, who)) / I_["c"].root.scale.x
+             motion.walk(I_["a"], st + 2, st + 2 + motion.WALK, off_x, 0.0)
+             busy(B, who, st, st + motion.WALK + 4)
++            if ACT:  # everyone's eyes follow the newcomer in
++                for o_ in B["cast"]:
++                    if o_ != who and o_ not in B.get("asleep", []):
++                        A(B, o_).look(st + 4, (-0.6 if sd == "left" else 0.6), 6)
++                        A(B, o_).look(st + motion.WALK, side(B, o_, who) * 0.6, 8)
+         for who, sd in B.get("exit", {}).items():
+             I_ = B["_inst"][who]
+             off_x = ((cx - hw_ if sd == "left" else cx + hw_) - seat_x(B, who)) / I_["c"].root.scale.x
+@@ -446,10 +660,20 @@ for bi, B in enumerate(C["beats"]):
          L_ = locs[B["location"]][0]
          i_ = L_.spot_names[spot] if isinstance(spot, str) else spot
          I_ = B["_inst"][who]
@@ -922,12 +1303,17 @@ index 93468b7..94a6688 100644
          f_ = st + int(sec * S.FPS)
          motion.walk(I_["a"], f_, f_ + motion.WALK, 0.0, dx, hold_until=en + 2)
          busy(B, who, f_ - 8, f_ + motion.WALK + 6)
++        if ACT:  # the others watch him go
++            for o_ in B["cast"]:
++                if o_ != who and o_ not in B.get("asleep", []):
++                    A(B, o_).look(f_, side(B, o_, who, f_) * 0.5, 6)
++                    A(B, o_).look(f_ + motion.WALK, side(B, o_, who, f_ + motion.WALK + 1) * 0.6, 8)
 +        if B.get("follow"):  # the camera travels with the walker and lands on him
 +            CA.push(f_ + 4, f_ + motion.WALK + 6, framing(B, f"close:{who}", fr=f_ + motion.WALK + 1), "smooth")
      # footprints: walking on sand leaves prints that stay for the rest of the beat
      if S.SURFACE.get(B["location"]) == "sand":
          for walks, inn in ((B.get("enter", {}), True), (B.get("exit", {}), False)):
-@@ -473,6 +592,7 @@ for bi, B in enumerate(C["beats"]):
+@@ -473,6 +697,7 @@ for bi, B in enumerate(C["beats"]):
      # group chat: [["Riot", "LIGHT'S ON"], ...] bubbles stack up on the right, each in its sender's colour
      if B.get("chat"):
          CHAT_COL = {"riot": "#FF6B00", "bash": "#E8192C", "pip": "#3D6DFF", "rocco": "#22B573"}
@@ -935,7 +1321,7 @@ index 93468b7..94a6688 100644
          for k, (who_, msg) in enumerate(B["chat"]):
              f_in = st + S.CHAT_IN + k * S.CHAT_EVERY
              col = CHAT_COL.get(who_.lower(), "#6A6A7A")
-@@ -480,7 +600,8 @@ for bi, B in enumerate(C["beats"]):
+@@ -480,7 +705,8 @@ for bi, B in enumerate(C["beats"]):
              cam_x = framing(B, B["camera"])[0]
              right = sum(seat_x(B, w) for w in B["cast"]) / max(1, len(B["cast"])) < cam_x  # bubbles go where the cast isn't
              bx = (18.4 - w_ * TS / 2) if right else (-18.4 + w_ * TS / 2)
@@ -945,7 +1331,7 @@ index 93468b7..94a6688 100644
              bub = empty(f"chat{bi}_{k}", None, (0, 0), 0.5)
              shape(f"chat{bi}_{k}_bg", props.rrect4(-w_ / 2, -1.0, w_ / 2, 1.0, (0.55, 0.55, 0.15, 0.55)), "#FFFFFF", bub, 0.0, smooth=0)
              shape(f"chat{bi}_{k}_bar", props.rrect4(-w_ / 2, 0.2, w_ / 2, 1.0, (0.0, 0.55, 0.55, 0.0)), col, bub, 0.01, ol=0, smooth=0)
-@@ -489,7 +610,15 @@ for bi, B in enumerate(C["beats"]):
+@@ -489,7 +715,15 @@ for bi, B in enumerate(C["beats"]):
              on_hud(bub, (bx, by), TS)
              set_visible(bub, False, 0)
              motion.pop_in(bub, f_in, 6, 1.12, 3)
@@ -962,7 +1348,7 @@ index 93468b7..94a6688 100644
      # transitions: "transition": "fade" fades in from black (a time jump); letterbox bars for cinematic beats
      if B.get("transition") == "fade" or B.get("letterbox"):
          if B.get("transition") == "fade":
-@@ -562,11 +691,19 @@ for bi, B in enumerate(C["beats"]):
+@@ -562,11 +796,19 @@ for bi, B in enumerate(C["beats"]):
              tg = empty(f"title{bi}", None, (0, 0), 0.5)
              glow(f"title{bi}_glow", (0, 0.2), 10.0, 2.6, "#FFC861", 0.009, 50, tg, -0.1)
              n_ = len(word)
@@ -984,7 +1370,7 @@ index 93468b7..94a6688 100644
              if fx.get("sub"):
                  sg = empty(f"title{bi}_sub", tg, (0, -2.6), 0.0)
                  props.outlined_text(f"title{bi}_sub_t", fx["sub"], 1.0, "#FFFFFF", sg, (0, 0), 0.0, 0.06)
-@@ -585,6 +722,13 @@ for bi, B in enumerate(C["beats"]):
+@@ -585,6 +827,13 @@ for bi, B in enumerate(C["beats"]):
              set_visible(cg, False, 0)
              motion.pop_in(cg, t0, 6)
              motion.pop_out(cg, t0 + int(fx.get("for", 2.0) * S.FPS), 5)
@@ -998,7 +1384,7 @@ index 93468b7..94a6688 100644
          elif fx["type"] == "critter":  # a small animal from Porchlight/art/parts/critters, bobbing; ripples on water
              x_, y_ = pt(*fx["at_px"])
              g = empty(f"critter{bi}_{fx['piece']}", None, (x_, y_), fx.get("z", 3.0))
-@@ -593,7 +737,7 @@ for bi, B in enumerate(C["beats"]):
+@@ -593,7 +842,7 @@ for bi, B in enumerate(C["beats"]):
              pcs = {}
              w0_ = None
              for pc in dict.fromkeys([p_ for _, p_ in sched] + ([fx["blink"]] if fx.get("blink") else [])):
@@ -1007,7 +1393,7 @@ index 93468b7..94a6688 100644
                  im_ = bpy.data.images.get(path) or bpy.data.images.load(path)
                  w_, h_ = im_.size
                  w0_ = w0_ or w_  # every pose at the first pose's scale
-@@ -688,7 +832,7 @@ for bi, B in enumerate(C["beats"]):
+@@ -688,7 +937,7 @@ for bi, B in enumerate(C["beats"]):
          others = [w for w in B["cast"] if w != "riot"]
          if G["type"] in ("nhie", "mlt"):
              CA.cut(G["card_in"] - 2, framing(B, "wide", band=True))
@@ -1016,7 +1402,7 @@ index 93468b7..94a6688 100644
              motion.present(r, G["card_in"] - 2, hold=G["read_end"] - G["card_in"])
              if C.get("riot_phone"):  # he reads the card off his real phone: left paw brings it up, then down again
                  f0_, f1_ = G["card_in"] - 4, G["read_end"] + 8
-@@ -800,7 +944,7 @@ for bi, B in enumerate(C["beats"]):
+@@ -800,7 +1049,7 @@ for bi, B in enumerate(C["beats"]):
          afters = [e for e in B["events"] if e["id"].startswith(f"{B['id']}_after")]
          for e in afters:  # follow-up lines: the camera goes to whoever speaks unless the line says otherwise
              speak(B, e)
@@ -1025,7 +1411,7 @@ index 93468b7..94a6688 100644
          if G["laughs"]:
              CA.cut(G["laugh"], framing(B, "wide"))
              for k, w in enumerate(["riot"] + others):
-@@ -821,19 +965,24 @@ for bi, B in enumerate(C["beats"]):
+@@ -821,19 +1070,24 @@ for bi, B in enumerate(C["beats"]):
                                                   ev_["start"], fmt=F.fmt, y_frac=0.88 if S.SURFACE.get(B["location"]) and B["location"] in locations.PLATE_SETS else 0.8,
                                                   max_chars=22, size=1.45 * TS))  # painted sets: below the bodies
  
@@ -1057,7 +1443,7 @@ index 93468b7..94a6688 100644
  
  # ---------- ending ----------
  EX = -SPACING
-@@ -896,7 +1045,9 @@ for n, (L, off, base) in locs.items():
+@@ -896,7 +1150,9 @@ for n, (L, off, base) in locs.items():
  if os.environ.get("SAVE_BLEND", "1") != "0":
      bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, "scene.blend"))
  frames = os.environ.get("FRAMES")
@@ -1069,7 +1455,7 @@ index 93468b7..94a6688 100644
          still(sc, os.path.join(OUT, "stills", f"s_{fr:04d}.png"), fr)
  else:
 diff --git a/templates/episode_script.py b/templates/episode_script.py
-index 3200286..4084aac 100644
+index 3200286..a3ff3b5 100644
 --- a/templates/episode_script.py
 +++ b/templates/episode_script.py
 @@ -2,7 +2,8 @@
@@ -1082,7 +1468,13 @@ index 3200286..4084aac 100644
  
  FPS = 30
  STANDALONE = True
-@@ -23,9 +24,19 @@ MOVES = ("take", "laugh", "cheer", "nervous", "yell", "shrug", "facepalm", "wave
+@@ -18,14 +19,23 @@ MOOD_BED = {"normal": "chill", "tense": "suspense", "party": "hype"}
+ AMBIENCE = {"campfire": ("fire", 0.16), "lake": ("lake", 0.12), "lake_night": ("night", 0.14), "stoop_sunset": ("street", 0.1),
+             "stoop_night": ("night", 0.12), "apartment": ("room", 0.08), "hall": ("hall", 0.16)}  # room tone per place
+ ROOM = {"hall": "hall", "apartment": "room"}  # voices get this room's echo (mix.ROOM_VERB)
+-MOVES = ("take", "laugh", "cheer", "nervous", "yell", "shrug", "facepalm", "wave", "thumbs", "present", "hop",
+-         "double_take", "point", "munch", "fan", "shiver", "stare")
++MOVES = screenplay.MOVES  # every move a line can "do" (one list, shared with the plain-text scripts)
  GAP, BEAT_PAD = 8, 10      # frames between lines, frames before a beat's first line
  WALK, STEP = 45, 11        # walk on/off timing (motion.WALK, motion.STEP)
  CHAT_IN, CHAT_EVERY = 14, 22  # group chat: first bubble, then one every N frames
@@ -1102,7 +1494,7 @@ index 3200286..4084aac 100644
  PORCH = {"click": 24, "black": 32, "logo": 40, "end": 105}  # "ending": "porch_light" timing, frames after the last beat
  
  
-@@ -33,7 +44,7 @@ def load(cfg):
+@@ -33,7 +43,7 @@ def load(cfg):
      path = cfg.get("script") or ""
      if not os.path.exists(path):
          raise SystemExit(f"episode: --script {path!r} not found")
@@ -1111,7 +1503,7 @@ index 3200286..4084aac 100644
      fmt = cfg.get("format") or "vertical"
      ep["beats"] = [b for b in ep["beats"] if fmt in b.get("formats", FORMATS)]
      for bi, b in enumerate(ep["beats"]):
-@@ -45,9 +56,77 @@ def load(cfg):
+@@ -45,9 +55,77 @@ def load(cfg):
          if "riot" not in b["cast"] and not (ep.get("riot_optional") and not b.get("game")):
              raise SystemExit(f"episode: beat {b.get('id')} has no Riot (he's in every beat; \"riot_optional\": true allows "
                               "beats without him, except game moments)")
@@ -1189,7 +1581,7 @@ index 3200286..4084aac 100644
  def hook(cfg):
      ep = load(cfg)
      return cfg.get("hook", "").replace("\\n", "\n") or ep["beats"][0].get("text", "")
-@@ -83,7 +162,7 @@ def _game_lines(bid, g):
+@@ -83,7 +161,7 @@ def _game_lines(bid, g):
          out = [(p + "say", g.get("who", "riot"), g["say"], "say")]
      else:
          raise SystemExit(f"episode: unknown game type {t!r} (nhie, mlt, td, alias, feature)")
@@ -1198,7 +1590,7 @@ index 3200286..4084aac 100644
  
  
  def lines(cfg):
-@@ -93,16 +172,30 @@ def lines(cfg):
+@@ -93,16 +171,30 @@ def lines(cfg):
          out.append(("prev", "riot", "Previously... " + ep["previously"]))
      for b in ep["beats"]:
          for li, l in enumerate(b.get("lines", [])):
@@ -1231,7 +1623,7 @@ index 3200286..4084aac 100644
  def timeline(cfg, dur):
      """dur: {line id: seconds}. Returns the beat plan (frames) for the scene, the mix and the chapters."""
      ep = load(cfg)
-@@ -111,9 +204,13 @@ def timeline(cfg, dur):
+@@ -111,9 +203,13 @@ def timeline(cfg, dur):
      wide = (cfg.get("format") or "vertical") == "horizontal"
      GAP, BEAT_PAD, LAUGH = (12, 16, 52) if wide else (8, 10, 40)  # the long cut breathes a little more
      t = 0
@@ -1247,7 +1639,7 @@ index 3200286..4084aac 100644
          ev = dict(id=lid, who=who, text=text, start=at, end=at + f(dur[lid]))
          ev.update(extra or {})
          voices.append([lid, s(at)] + ([ROOM[cur_loc[0]]] if cur_loc[0] in ROOM else []))
-@@ -123,7 +220,7 @@ def timeline(cfg, dur):
+@@ -123,7 +219,7 @@ def timeline(cfg, dur):
          evs = []
          for li, l in enumerate(b.get("lines", [])):
              t += l.get("pause", GAP if li else 0)
@@ -1256,7 +1648,7 @@ index 3200286..4084aac 100644
              evs.append(ev)
              t = ev["end"]
          return evs, t
-@@ -217,7 +314,7 @@ def timeline(cfg, dur):
+@@ -217,7 +313,7 @@ def timeline(cfg, dur):
                  sfx += [["whistle", s(G["timer_in"]), 0.35], ["card_flip", s(G["card_in"]), 0.5], ["ting", s(G["tick"]), 0.5]]
              for k, l in enumerate(g.get("after", [])):
                  t += l.get("pause", GAP)
@@ -1265,7 +1657,7 @@ index 3200286..4084aac 100644
                  B["events"].append(ev)
                  t = ev["end"]
              laughs = g.get("laugh", g["type"] != "feature")  # JSON "laugh": false skips the group laugh
-@@ -230,10 +327,12 @@ def timeline(cfg, dur):
+@@ -230,10 +326,12 @@ def timeline(cfg, dur):
              B["game"] = G
          for li, l in enumerate(b.get("after", [])):
              t += l.get("pause", GAP)
@@ -1279,7 +1671,16 @@ index 3200286..4084aac 100644
          if b.get("exit"):  # time for the walk off
              t += WALK + 6
          for k in range(len(b.get("chat", []))):  # group-chat bubbles pop in one by one
-@@ -264,6 +363,8 @@ def timeline(cfg, dur):
+@@ -257,6 +355,8 @@ def timeline(cfg, dur):
+                 sfx.append(["ting", s(ev["end"] + 2), 0.2])
+             if ev.get("quiet"):
+                 sfx.append(["breath", s(max(0, ev["start"] - 14)), 0.25])
++            elif ep.get("act") == "auto" and ev["text"].lstrip().startswith("..."):  # a sigh before a "..." line
++                sfx.append(["breath", s(max(0, ev["start"] - 16)), 0.3])
+         for ev in B["events"]:  # foley tied to moves: Rocco's chips crunch
+             if ev.get("do") == "munch":
+                 sfx += [["crunch", s(ev["start"] + 10), 0.3], ["crunch", s(ev["start"] + 22), 0.25]]
+@@ -264,6 +364,8 @@ def timeline(cfg, dur):
              n, _, off = name.partition("@")
              sfx.append([n, s(start + f(float(off or 0.1))), 0.4])
          B["end"] = t
@@ -1288,7 +1689,7 @@ index 3200286..4084aac 100644
          beats.append(B)
      end = t
      if ep.get("ending") == "porch_light":  # Porchlight: hold on the porch light, click, black, small Friendzy logo
-@@ -300,9 +401,8 @@ def timeline(cfg, dur):
+@@ -300,9 +402,8 @@ def timeline(cfg, dur):
          chapters.pop()
      return {"beats": beats, "end": end, "end_vo": end_vo, "END": END, "voices": voices, "sfx": sfx,
              "music_segments": music_s,
@@ -1300,7 +1701,7 @@ index 3200286..4084aac 100644
              "chapters": [[s(a), name] for a, name in chapters], "series": ep["series"], "episode": ep["episode"],
              "title": ep.get("title", ""), "next": ep.get("next", ""), "ending": ep.get("ending", "card"),
 -            "riot_phone": ep.get("riot_phone", False)}
-+            "riot_phone": ep.get("riot_phone", False), "sit": ep.get("sit"), "shots": director.shot_list(shots) if shots else ""}
++            "riot_phone": ep.get("riot_phone", False), "sit": ep.get("sit"), "act": ep.get("act"), "shots": director.shot_list(shots) if shots else ""}
 diff --git a/templates/make.py b/templates/make.py
 index 4ebfbf7..b3e0c64 100644
 --- a/templates/make.py
@@ -1491,10 +1892,10 @@ index 5f8cd01..2f38fc2 100644
      mood, at, gain, drop0, drop1 = cues["music"]
 diff --git a/templates/screenplay.py b/templates/screenplay.py
 new file mode 100644
-index 0000000..87ce851
+index 0000000..18bdad6
 --- /dev/null
 +++ b/templates/screenplay.py
-@@ -0,0 +1,271 @@
+@@ -0,0 +1,272 @@
 +# Plain-text episode scripts: write an episode like a screenplay, and this turns it into the episode JSON
 +# (written next to the script as <name>.json, so it can be read). make.py accepts either:
 +#   python3 make.py episode --script episodes/ep02.txt --format horizontal
@@ -1533,7 +1934,8 @@ index 0000000..87ce851
 +SET_NAMES = {v for v in SETS.values()}
 +TIMES = {"day": 0, "afternoon": 1, "sunset": 2, "evening": 2, "night": 3}  # a jump backwards = a new day
 +MOVES = ("take", "laugh", "cheer", "nervous", "yell", "shrug", "facepalm", "wave", "thumbs", "present", "hop",
-+         "double_take", "point", "munch", "fan", "shiver", "stare")
++         "double_take", "point", "munch", "fan", "shiver", "stare",
++         "cross", "hips", "nod", "shake", "clap", "count", "peace", "horns", "rock", "gloom", "yawn", "stretch", "scratch", "chuckle")
 +QUIET = ("whispers", "whispering", "quietly", "softly", "quiet", "under his breath")
 +LONG_WORDS = 22          # lint: a line longer than this is hard to act and to read as a caption
 +WORDS_PER_SEC = 2.6      # length estimate for voiced lines
@@ -1574,10 +1976,10 @@ index 0000000..87ce851
 +def parse(text, path="script"):
 +    """Script text -> (episode dict, notes). Notes: lint warnings and the length estimate."""
 +    ep = {"series": "Porchlight", "episode": 0, "title": "", "next": "", "beats": [],
-+          # Porchlight defaults: the auto-director, the porch-light ending, the lo-fi bed, scenes without Riot,
-+          # Riot reading game cards off his phone, sitters on furniture
++          # Porchlight defaults: the auto-director, automatic acting, the porch-light ending, the lo-fi bed, scenes
++          # without Riot, Riot reading game cards off his phone, sitters on furniture
 +          "direct": "auto", "ending": "porch_light", "beds": {"normal": "lofi"}, "riot_optional": True,
-+          "riot_phone": True, "sit": "auto"}
++          "riot_phone": True, "sit": "auto", "act": "auto"}
 +    notes, beat, scene = [], None, None
 +    lines = text.splitlines()
 +    i = 0
