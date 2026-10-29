@@ -287,3 +287,7 @@ The user approved all of Claude's bible proposals (via a pasted review) and adde
 - **Build order:** 1) an auto-director (shots, reaction cuts, who talks to whom, how hard a line is played), then body and movement, interaction and physics, light and camera polish.
 - No episode renders for now. Small test stills / reference sheets are fine for checking each piece.
 - Everything stays opt-in from the episode JSON, so the Shorts and Episode 1 render exactly as before.
+
+## Round 14: side views (29 Oct)
+- **Side views approved** ("perfect"): the code-drawn side view of each of the four, with their walk and run cycles (`art/side-views/side_*.png`, `Blender/characters/profile.py`). Drawn from Gemini turnarounds and walks; Gemini's off-model bits (Pip's grey patch, Bash's black trousers, Riot's grey paws) left out.
+- Gemini pictures are guides only (turnarounds, walks, poses, paws); the cast stays code-drawn.
