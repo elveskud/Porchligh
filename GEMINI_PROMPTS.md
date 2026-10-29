@@ -187,14 +187,15 @@ Simple shapes, readable from far away. NO text, NO labels, NO numbers.
 ## E. Drawing references for the cast (for Claude to copy in code, never used in the video)
 
 These are **guides only**: the cast stays code-drawn (round 11). Gemini's drawings are often off-model, and that's
-fine here, because only the *angle and pose* are copied, not the drawing. Attach `refs/lineup.png` as image 1.
+fine here, because only the *angle and pose* are copied, not the drawing. Attach the character's own picture from
+`refs-for-gemini/` (`riot.png`, `bash.png`, `pip.png`, `rocco.png`) as image 1. For the set prompts (F) use the set
+painting instead. `refs-for-gemini/lineup.png` shows all four together.
 Save into `art/gemini/refs/` with the name shown. One image per character where it says `<NAME>`: do Riot first,
 then Bash, Pip and Rocco.
 
 ### E1. Turnaround (side view) → `turnaround_<name>.jpg`
 ```
-Image 1 shows the four main characters of a 2D cartoon series. Draw ONLY <NAME> (the <fox / bear / bunny / raccoon>
-in image 1), keeping his exact design, colours, clothes and proportions.
+Image 1 shows <NAME>, a character from a 2D cartoon series (the <fox / bear / bunny / raccoon>). Draw him, keeping his exact design, colours, clothes and proportions.
 A character turnaround sheet: the same character standing in a relaxed pose, shown 4 times side by side, all the
 same height, feet on the same line: 1) front view  2) three-quarter view turned to the right  3) side view
 (profile) facing right  4) back view.
@@ -204,8 +205,7 @@ Plain white background. NO text, NO labels, NO numbers, NO other characters.
 
 ### E2. Side-view walk and run → `walk_<name>.jpg`
 ```
-Image 1 shows the four main characters of a 2D cartoon series. Draw ONLY <NAME> (the <fox / bear / bunny / raccoon>
-in image 1), keeping his exact design, colours, clothes and proportions.
+Image 1 shows <NAME>, a character from a 2D cartoon series (the <fox / bear / bunny / raccoon>). Draw him, keeping his exact design, colours, clothes and proportions.
 An animation walk cycle in SIDE VIEW, facing right: 8 poses in a row, all the same size, feet on the same ground
 line: contact, down, passing, up, contact (other leg), down, passing, up. Below it, a run cycle in side view,
 facing right: 4 poses in a row. Arms swing opposite to the legs. <WALK STYLE>
@@ -220,8 +220,7 @@ Walk style per character (paste in place of `<WALK STYLE>`):
 
 ### E3. Poses → `poses_<name>.jpg`
 ```
-Image 1 shows the four main characters of a 2D cartoon series. Draw ONLY <NAME> (the <fox / bear / bunny / raccoon>
-in image 1), keeping his exact design, colours, clothes and proportions, seen from the FRONT like in image 1.
+Image 1 shows <NAME>, a character from a 2D cartoon series (the <fox / bear / bunny / raccoon>). Draw him, his exact design, colours, clothes and proportions, seen from the FRONT like in image 1.
 A pose sheet, 8 poses in two rows, all the same scale, each one separate:
 1) lying back on a beanbag, relaxed, arms behind his head
 2) sitting cross-legged on the ground
@@ -237,8 +236,7 @@ colours with ONE darker shadow tone, no texture. Plain white background. NO text
 
 ### E4. Paws → `paws_<name>.jpg`
 ```
-Image 1 shows the four main characters of a 2D cartoon series. Draw ONLY the paws (hands) of <NAME>
-(the <fox / bear / bunny / raccoon> in image 1), in the same cartoon style: big simple 4-finger paws.
+Image 1 shows <NAME>, a character from a 2D cartoon series. Draw ONLY his paws (hands), in the same cartoon style: big simple 4-finger paws.
 A hand sheet, 10 paws in two rows, same size, each separate: open palm, relaxed, fist, pointing with one finger,
 thumbs up, holding a cup, holding a phone, grabbing, counting two fingers, waving.
 Bold clean black outlines, flat solid colours with ONE darker shadow tone. Plain white background.
