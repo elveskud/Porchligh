@@ -13,6 +13,8 @@ This is its own project, separate from the Friendzy advertiser (which only makes
 | `ANIMATION_CHECKLIST.md` | The animation rules (dos and don'ts), the known problems with their status, and the per-episode checklist. |
 | `ANIMATION_TODO.md` | The first 37 animation fixes, and every episode JSON field the Porchlight pipeline understands. |
 | `GEMINI_PROMPTS.md` | Prompts for the Gemini set paintings (in the cast's style). |
+| `WRITING_AN_EPISODE.md` | How to write an episode as a plain-text script (the engine directs and renders it). |
+| `ANIMATION_WINS.md` | The 200 small animation-quality wins and their status. |
 | `CLAUDE.md` | How to work on this project (for Claude sessions). |
 | `pipeline-patches/` | Changes to the shared Blender pipeline waiting to be applied on the Mac (`blender.patch` + `CHANGES.md`). |
 

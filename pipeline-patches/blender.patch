@@ -135,7 +135,7 @@ index f7e5724..10e31c9 100644
                  g.location.y = max(y0, y1) - (abs(y1 - y0)) * u
                  g.rotation_euler.z = math.sin(u * 10 + i) * 1.2
 diff --git a/characters/motion.py b/characters/motion.py
-index a5332fe..2b06b97 100644
+index a5332fe..b773aac 100644
 --- a/characters/motion.py
 +++ b/characters/motion.py
 @@ -155,7 +155,11 @@ class Anim:
@@ -295,7 +295,18 @@ index a5332fe..2b06b97 100644
  
      def hud(self, obj, ref_ortho=22.0):
          """Keep a camera-parented overlay (captions, stickers) the same on-screen size while the camera zooms."""
-@@ -1264,7 +1282,7 @@ class CamAnim:
+@@ -1258,13 +1276,18 @@ class CamAnim:
+     def shake(self, f, dur, amp):
+         self.shakes.append((f, dur, amp))
+ 
++    def tilt(self, f0, f1, deg, ease=12):
++        """A dutch angle: the frame leans `deg` degrees over [f0, f1], easing in and out over `ease` frames.
++        HUD overlays (captions, cards) are counter-rotated, so text stays level."""
++        self.tilts = getattr(self, "tilts", []) + [(f0, f1, deg, ease)]
++
+     DRIFT = 0.05  # a slow handheld drift (frame-height units at ortho 22), so no shot is ever dead still
+ 
+     def bake(self, f0, f1):
          import locations
          # every set's own light comes alive (fire flicker, lamp buzz, sweeping beams), plus foreground depth layers
          self.parallax += [(o, fac, Vector(o.location)) for o, fac in locations.ambient(f0, f1)]
@@ -304,6 +315,24 @@ index a5332fe..2b06b97 100644
          ks = ks + [(f1 + 1, ks[-1][1], "linear")]
          for fr in range(f0, f1 + 1):
              x, y, o = (curve(fr, [(k, v[i], e) for k, v, e in ks]) for i in range(3))
+@@ -1285,9 +1308,17 @@ class CamAnim:
+             self.cam.data.ortho_scale = o
+             self.cam.keyframe_insert("location", frame=fr)
+             self.cam.data.keyframe_insert("ortho_scale", frame=fr)
++            tilts = getattr(self, "tilts", ())
++            rz = rad(sum(d * envelope(fr, a, b, e) for a, b, d, e in tilts)) if tilts else 0.0
++            if tilts:
++                self.cam.rotation_euler.z = rz
++                self.cam.keyframe_insert("rotation_euler", index=2, frame=fr)
+             for obj, ref in getattr(self, "huds", []):
+                 obj.scale = (o / ref, o / ref, 1)
+                 obj.keyframe_insert("scale", frame=fr)
++                if tilts:
++                    obj.rotation_euler.z = -rz
++                    obj.keyframe_insert("rotation_euler", index=2, frame=fr)
+             for lay, fac, base in self.parallax:  # far layers follow the camera part of the way
+                 lay.location = base + Vector(((x - self.x0) * (1 - fac), (y - self.y0) * (1 - fac), 0))
+                 lay.keyframe_insert("location", frame=fr)
 diff --git a/characters/toon.py b/characters/toon.py
 index 0ef9b79..d00fc66 100644
 --- a/characters/toon.py
@@ -373,10 +402,10 @@ index 1fca3f4..308779d 100644
  sys.exit(0 if ok_all else 1)
 diff --git a/templates/director.py b/templates/director.py
 new file mode 100644
-index 0000000..46437f9
+index 0000000..34a0f3e
 --- /dev/null
 +++ b/templates/director.py
-@@ -0,0 +1,120 @@
+@@ -0,0 +1,178 @@
 +# The auto-director: makes the film-making choices a script leaves out, so a short script still plays like a
 +# directed episode. Episode JSON opts in with "direct": "auto"; anything the script says itself always wins.
 +# Pure Python (runs inside episode_script.timeline), so its choices are in cues.json and in shots.txt.
@@ -385,24 +414,33 @@ index 0000000..46437f9
 +#   to      who the line is said to (the speaker turns to them; listeners already turn to the speaker)
 +#   energy  how hard it's played, from the punctuation: "!" bigger, a SHOUTED word bigger still, "..." softer
 +#   camera  coverage: the beat opens on its own (establishing) shot, then shot / reverse shot over the listener's
-+#           shoulder for two-way talk, close-ups for someone holding the floor, a two-shot or wide to re-orient,
-+#           never a cut faster than MIN_SHOT, never the same framing twice in a row
-+#   react   on a line that lands (punch or "!") with nobody answering, cut to the listener's face (a "cu" close-up)
++#           shoulder for two-way talk, close-ups ("cu") as an exchange heats up, close shots for someone holding
++#           the floor, a two-shot or wide to re-orient; never a cut faster than MIN_SHOT, never a jump cut (same
++#           people, both tight), and a cut lands on the action when a line starts with a big move
++#   react   on a line that lands (punch or "!") with nobody answering, cut to the listener's face
++#   snap    a shouted line snaps in on the speaker
++#   creep   a shot held longer than HOLD_MAX starts a slow push, so nothing sits dead still
++# Per beat: exits play on the wide; inserts ("at:") creep in; tense beats get a slight dutch angle; walks are
++# followed; game cards go where the cast isn't; close-ups get a soft background (depth of field).
 +import re
 +
 +FPS = 30
 +MIN_SHOT = 36        # frames: a shot shorter than this reads as a jump
-+LONG_LINE = 75       # frames: a line this long earns its own close-up even in a one-person scene
++SHORT_FLAG = 30      # shots.txt flags anything shorter than this
++HOLD_MAX = 240       # frames on one shot before it starts to creep in
++LONG_LINE = 75       # frames: a line this long earns its own close shot even in a one-person scene
 +TIGHT_RUN = 4        # after this many tight shots in a row, pull back to show the room
-+SINGLES_AFTER = 2    # a two-way exchange starts over the shoulder, then goes to singles (closer) as it heats up
++SINGLES_AFTER = 2    # a two-way exchange starts over the shoulder, then goes to close-ups as it heats up
++DUTCH = 3.0          # degrees of tilt for tense beats
 +GAME_ROLES = ("read", "confess", "choose", "perform", "clue", "guess", "say")
++ACTION = ("take", "double_take", "cheer", "hop", "yell", "facepalm")  # big moves a cut can land on
++WALK = 45            # frames of a walk off (motion.WALK)
 +
 +
 +def energy(text):
 +    """How hard a line is played (talk() energy), from how it's written."""
 +    t = text.strip()
-+    shout = any(len(w) >= 3 and w.isupper() for w in re.findall(r"[A-Za-z']+", t))
-+    if shout:
++    if any(len(w) >= 3 and w.isupper() for w in re.findall(r"[A-Za-z']+", t)):
 +        return 1.4
 +    if t.endswith("!") or t.endswith("!?") or t.endswith("?!"):
 +        return 1.25
@@ -423,17 +461,32 @@ index 0000000..46437f9
 +    return (spec or "wide").split(":")[0] in ("close", "cu", "ots")
 +
 +
++def jump_cut(a, b):
++    """Two tight shots of the same people: cutting between them is a jump, not an edit."""
++    return tight(a) and tight(b) and shows(a, ()) == shows(b, ())
++
++
++def is_shot(spec):
++    return spec is not None and not spec.startswith(("snap", "creep"))
++
++
 +def direct_beat(b, B):
-+    """Fill in `to`, `energy`, `camera` (+ `cut`) and `react` on the beat's dialogue events. b: the beat from the
-+    JSON, B: its timeline entry (events with frames). Returns the shot list rows [(frame, spec, why)]."""
++    """Fill in the beat's direction (see the top of this file). b: the beat from the JSON, B: its timeline entry
++    (events with frames). Returns the shot list rows [(frame, spec, why)], ending with (beat end, None, None)."""
 +    cast = list(b["cast"])
 +    evs = [e for e in B["events"] if e.get("role") not in GAME_ROLES and not e.get("previously") and "_after" not in e["id"]]
-+    rows = []
-+    if not evs:
-+        return rows
-+    locked = bool(b.get("move")) or (b.get("camera") or "wide").split(":")[0] not in ("wide",)  # the script framed it
-+    cur, last_cut, run = b.get("camera") or "wide", B["start"], 0
-+    rows.append((B["start"], cur, "the beat's own shot"))
++    cam0 = b.get("camera") or "wide"
++    locked = bool(b.get("move")) or cam0.split(":")[0] != "wide"  # the script framed this beat itself
++    rows = [(B["start"], cam0, "the beat's own shot")]
++    if b.get("mood") == "tense":
++        B["dutch"] = DUTCH
++    if cam0.startswith("at:") and not b.get("move"):
++        B["creep_insert"] = True
++    if b.get("walk_to"):
++        B["follow"] = True
++    if b.get("game"):
++        B["card_side"] = "auto"
++    cur, last_cut, run = cam0, B["start"], 0
 +    prev_who, pair, pair_run = None, None, 0
 +    for i, e in enumerate(evs):
 +        who = e["who"]
@@ -449,13 +502,16 @@ index 0000000..46437f9
 +        this_pair = frozenset((who, to)) if to and prev_who == to else None
 +        pair_run = pair_run + 1 if this_pair and this_pair == pair else (1 if this_pair else 0)
 +        pair = this_pair
++        shout = e["energy"] >= 1.4 and not e.get("quiet")
 +        if e.get("camera"):  # the script chose this shot
 +            cur, last_cut = e["camera"], e["start"]
 +            run = run + 1 if tight(cur) else 0
 +            rows.append((e["start"], cur, "script"))
-+        elif not locked and i > 0 and not e.get("quiet") and not e.get("punch"):
-+            want = None
-+            if len(cast) == 1:
++        elif not locked and i > 0 and not e.get("quiet") and not e.get("punch") and not shout:
++            want, why, at = None, "", e["start"] - 3
++            if e.get("do") in ACTION:  # cut on the action: land on the move as it starts
++                want, why, at = f"close:{who}", f"cut on the action ({e['do']})", e["start"] + 2
++            elif len(cast) == 1:
 +                if (e["end"] - e["start"]) >= LONG_LINE and not tight(cur):
 +                    want, why = f"close:{who}", "a long line: closer"
 +            elif run >= TIGHT_RUN:
@@ -466,18 +522,32 @@ index 0000000..46437f9
 +                want, why = f"ots:{to},{who}", f"shot / reverse shot ({who} to {to})"
 +            else:
 +                want, why = f"close:{who}", f"{who} takes the floor"
-+            too_soon = e["start"] - last_cut < MIN_SHOT
++            too_soon = at - last_cut < MIN_SHOT
 +            if want and too_soon and who not in shows(cur, cast):  # can't hold, can't cut yet: one shot for both
 +                want, why = (f"two:{prev_who},{who}" if prev_who and prev_who != who else "wide"), "quick exchange: hold both"
 +            elif want and too_soon:
 +                want = None
-+            if want and want != cur:
++            if want and (want == cur or jump_cut(want, cur)):
++                want = None  # already there, or a jump cut: hold the shot
++            if want:
 +                e["camera"], e["cut"] = want, True
-+                cur, last_cut = want, e["start"]
++                if at != e["start"] - 3:
++                    e["cut_at"] = at
++                if want == "wide":
++                    e["favor"] = who  # the wide leans a little toward whoever is talking
++                cur, last_cut = want, at
 +                run = run + 1 if tight(want) else 0
-+                rows.append((e["start"], want, why))
++                rows.append((at, want, why))
++        elif shout and not e.get("camera"):
++            e["snap"] = True
++            run += 1
++            rows.append((e["start"] - 4, f"snap in on {who}", "a shouted line"))
 +        elif e.get("quiet") or e.get("punch"):
 +            run += 1  # these push in on the speaker themselves
++        if not e.get("cut") and e["start"] - last_cut > HOLD_MAX and not e.get("quiet") and not e.get("snap"):
++            e["creep"] = cur  # a long hold starts a slow push
++            last_cut = e["start"]
++            rows.append((e["start"], f"creep in ({cur})", f"held over {HOLD_MAX // FPS} s"))
 +        lands = e.get("punch") or e["text"].rstrip().endswith("!")
 +        if lands and not e.get("react") and to and len(cast) > 1 and not nxt and i == len(evs) - 1:
 +            e["react"], e["react_shot"] = to, "cu"
@@ -486,22 +556,39 @@ index 0000000..46437f9
 +            cur, last_cut = f"{e.get('react_shot', 'close')}:{e['react']}", e["end"] + 2
 +            run += 1
 +        prev_who = who
++    if b.get("exit") and cur != "wide":  # exits play on the wide, so the walk off reads
++        f = B["end"] - WALK - 8
++        B["exit_wide"] = f
++        rows.append((f, "wide", "the walk off"))
++    rows.sort(key=lambda r: r[0])
++    real = [(f, s) for f, s, _ in rows if is_shot(s)]
++    # close-ups get a soft background (depth of field), from their cut to the next one
++    B["dof"] = [(f0, f1) for (f0, s), (f1, _) in zip(real, real[1:] + [(B["end"], None)]) if s.startswith("cu:")]
++    rows.append((B["end"], None, None))
 +    return rows
 +
 +
 +def shot_list(rows_by_beat):
-+    """shots.txt: every camera decision, so a director's pass can be read (and argued with) before any render."""
++    """shots.txt: every camera decision with its length, so a director's pass can be read (and argued with)
++    before any render. Shots under a second are flagged."""
 +    out = []
 +    for bid, rows in rows_by_beat:
 +        out.append(f"[{bid}]")
++        real = [f for f, s, _ in rows if is_shot(s)] + [rows[-1][0]]
++        length = {f: f1 - f for f, f1 in zip(real, real[1:])}
 +        for fr, spec, why in rows:
-+            out.append(f"  {fr // FPS // 60}:{fr // FPS % 60:02d}.{fr % FPS:02d}  {spec:22s} {why}")
++            if spec is None:
++                continue
++            ln = length.get(fr) if is_shot(spec) else None
++            lt = f"{ln / FPS:4.1f}s" if ln is not None else "     "
++            flag = "  <- under a second" if ln is not None and ln < SHORT_FLAG else ""
++            out.append(f"  {fr // FPS // 60}:{fr // FPS % 60:02d}.{fr % FPS:02d} {lt}  {spec:24s} {why}{flag}")
 +    return "\n".join(out) + "\n"
 diff --git a/templates/episode_scene.py b/templates/episode_scene.py
-index 93468b7..5a9b584 100644
+index 93468b7..94a6688 100644
 --- a/templates/episode_scene.py
 +++ b/templates/episode_scene.py
-@@ -62,10 +62,20 @@ for B in C["beats"]:
+@@ -62,10 +62,24 @@ for B in C["beats"]:
  
  def seat_of(B, who):
      defaults = S.SEATS["car" if B["location"] == "car" else "default"]
@@ -510,6 +597,10 @@ index 93468b7..5a9b584 100644
 -        defaults = {who: next(i for i in range(8) if i not in taken)}
 -    v = (B.get("seats") or {}).get(who, defaults.get(who))
 +    seats = B.get("seats") or {}
++    if C.get("sit") == "auto" and who not in seats:  # sitters sit: free seats on the set go to the cast, in order
++        auto = auto_seats(B)
++        if who in auto:
++            return auto[who]
 +    if who not in defaults and who not in seats:  # anyone else: the first standing spot nobody in the beat uses
 +        n_spots = len(locs[B["location"]][0].seats)
 +        taken = {seat_of(B, w) for w in B["cast"] if w in defaults or w in seats}
@@ -526,7 +617,7 @@ index 93468b7..5a9b584 100644
      if isinstance(v, str):  # painted sets: a named spot ("sofa_l", "step", "tower", ...)
          L = locs[B["location"]][0]
          if v not in getattr(L, "spot_names", {}):
-@@ -74,9 +84,21 @@ def seat_of(B, who):
+@@ -74,9 +88,39 @@ def seat_of(B, who):
      return v
  
  
@@ -543,6 +634,24 @@ index 93468b7..5a9b584 100644
 +    return seat_of(B, who)
 +
 +
++def auto_seats(B):
++    """"sit": "auto": everyone without a spot of their own takes the set's free sit spots, in cast order (Riot stays
++    on his feet when he's running a game). Standing spots go to the rest as usual."""
++    if "_auto_seats" not in B:
++        L = locs[B["location"]][0]
++        kinds = getattr(L, "spot_kind", [])
++        seats = B.get("seats") or {}
++        named = getattr(L, "spot_names", {})
++        taken = {named.get(v, v) for v in seats.values()}
++        free = [i for i, k in enumerate(kinds) if k == "sit" and i not in taken]
++        B["_auto_seats"] = {}
++        for w in B["cast"]:
++            if w in seats or not free or (w == "riot" and B.get("game")):
++                continue
++            B["_auto_seats"][w] = free.pop(0)
++    return B["_auto_seats"]
++
++
 +def seat_x(B, who, fr=None):
      L, off, _ = locs[B["location"]]
 -    return L.seats[seat_of(B, who)][0] + off
@@ -550,7 +659,7 @@ index 93468b7..5a9b584 100644
  
  
  def eye_y(B, who="riot"):
-@@ -150,8 +172,8 @@ def is_busy(B, who, f0, f1):
+@@ -150,8 +194,8 @@ def is_busy(B, who, f0, f1):
      return any(a < f1 and f0 < b for a, b in B["_inst"][who]["busy"])
  
  
@@ -561,7 +670,7 @@ index 93468b7..5a9b584 100644
  
  
  def munch(a, f, n=2):
-@@ -170,7 +192,7 @@ def stare(B, who, f, f_end):
+@@ -170,7 +214,7 @@ def stare(B, who, f, f_end):
      a.look(f, 0.0, 3)
      a.look_up(f, 0.0, 3)
      a.expr(f, "suspicious")
@@ -570,7 +679,7 @@ index 93468b7..5a9b584 100644
  
  
  def dust(B, who, f):
-@@ -179,7 +201,7 @@ def dust(B, who, f):
+@@ -179,7 +223,7 @@ def dust(B, who, f):
      s0 = c.root.scale.x
      col = {"sand": "#F2DDB8", "stone": "#C8C8D0", "wood": "#D8C8B0"}.get(S.SURFACE.get(B["location"]), "#E0D8C8")
      for k, dx in enumerate((-1.3, -0.5, 0.5, 1.3)):
@@ -579,7 +688,7 @@ index 93468b7..5a9b584 100644
          shape(f"dust_{who}_{f}_{k}_s", ell(0, 0, 0.45 * s0, 0.3 * s0, n=16), col, g, 0.0, ol=0)
          set_visible(g, False, 0)
          set_visible(g, True, f)
-@@ -187,7 +209,7 @@ def dust(B, who, f):
+@@ -187,7 +231,7 @@ def dust(B, who, f):
          for fr, sc_, dy in ((f, 0.3, 0.0), (f + 6, 1.0, 0.25), (f + 13, 0.6, 0.45)):
              g.scale = (sc_, sc_, 1)
              g.location.y = c.root.location.y + (0.2 + dy) * s0 + dy
@@ -588,7 +697,7 @@ index 93468b7..5a9b584 100644
              g.keyframe_insert("scale", frame=fr)
              g.keyframe_insert("location", frame=fr)
  
-@@ -198,7 +220,7 @@ def do_move(B, who, move, f, f_end, target=None):
+@@ -198,7 +242,7 @@ def do_move(B, who, move, f, f_end, target=None):
              locs[B["location"]][0].spot_kind[seat_of(B, who)] == "stand":
          dust(B, who, f + {"hop": 12, "take": 12, "cheer": 14}[move])
      tgt = target or next((w for w in B["cast"] if w != who), who)
@@ -597,7 +706,7 @@ index 93468b7..5a9b584 100644
      end = {"take": f + 30, "laugh": f_end + 30, "cheer": f + 30, "nervous": f_end + 10, "yell": f_end, "shrug": f + 26,
             "facepalm": f + 40, "wave": f + 30, "thumbs": f + 30, "present": f_end, "hop": f + 14, "double_take": f + 50,
             "point": f + 34, "munch": f + 34, "fan": f_end, "shiver": f_end, "stare": f_end}[move]
-@@ -216,10 +238,14 @@ def speak(B, ev, listen=True):
+@@ -216,20 +260,26 @@ def speak(B, ev, listen=True):
      who = ev["who"]
      a = A(B, who)
      if ev.get("face"):
@@ -613,8 +722,13 @@ index 93468b7..5a9b584 100644
      elif lk:
          ud, _, lr = lk.partition("_") if lk.split("_")[0] in ("up", "down") else ("", "", lk)
          if ud:
-@@ -229,7 +255,7 @@ def speak(B, ev, listen=True):
-     if ev.get("quiet"):  # a quiet, emotional line: smaller acting, no hand gestures, the head barely moves
+             a.look_up(ev["start"] - 4, 1.0 if ud == "up" else -1.0, 6)
+         if lr in ("left", "right"):
+             a.look(ev["start"] - 4, -0.7 if lr == "left" else 0.7, 6)
+-    if ev.get("quiet"):  # a quiet, emotional line: smaller acting, no hand gestures, the head barely moves
++    if ev.get("silent"):  # acted, not voiced ("..."): the face, the look and the move do the talking
++        pass
++    elif ev.get("quiet"):  # a quiet, emotional line: smaller acting, no hand gestures, the head barely moves
          motion.talk(a, ev["start"], vo(ev["id"]), text=ev["text"], energy=0.55, gestures=False)
      else:
 -        motion.talk(a, ev["start"], vo(ev["id"]), text=ev["text"])
@@ -622,15 +736,16 @@ index 93468b7..5a9b584 100644
      if ev.get("emote"):  # sweat, anger, sparkle, question, exclaim, heart, zzz
          emote_jobs.append((B, who, ev["emote"], ev["start"], ev["end"] + 10))
      c_ = B["_inst"][who]["c"]
-@@ -238,13 +264,13 @@ def speak(B, ev, listen=True):
+@@ -238,13 +288,13 @@ def speak(B, ev, listen=True):
          set_visible(c_.extras["sweat"], False, ev["end"] + 12)
      if not ev.get("camera"):
          if ev.get("quiet"):  # emotional lines: a slow push-in while they speak
 -            x_, y_, o_ = framing(B, f"close:{who}")
 +            x_, y_, o_ = framing(B, f"close:{who}", fr=ev["start"])
              CA.push(ev["start"], ev["end"] + 6, (x_, y_, o_ * 0.88), "smooth")
-         elif ev.get("punch"):  # the joke lands: a quick snap in, then hold
+-        elif ev.get("punch"):  # the joke lands: a quick snap in, then hold
 -            x_, y_, o_ = framing(B, f"close:{who}")
++        elif ev.get("punch") or ev.get("snap"):  # the joke lands / a shout: a quick snap in, then hold
 +            x_, y_, o_ = framing(B, f"close:{who}", fr=ev["start"])
              CA.push(ev["start"] - 4, ev["start"] + 3, (x_, y_, o_ * 0.82), "out")
      if ev.get("react"):  # cut to the listener's face for the reaction
@@ -639,7 +754,7 @@ index 93468b7..5a9b584 100644
      if who == "bash" and ev.get("face") == "yelling":
          CA.shake(ev["start"] + 2, 8, 0.15)
      if ev.get("do"):
-@@ -254,14 +280,17 @@ def speak(B, ev, listen=True):
+@@ -254,14 +304,21 @@ def speak(B, ev, listen=True):
              if other == who:
                  continue
              o = A(B, other)
@@ -647,21 +762,25 @@ index 93468b7..5a9b584 100644
 +            o.look(ev["start"] - 3, side(B, other, who, ev["start"]), 6)
              if not is_busy(B, other, ev["start"], ev["end"]):
 -                motion.listen(o, ev["start"] + 2, ev["end"] + 4, side(B, other, who), phrase_beats(ev))
-+                motion.listen(o, ev["start"] + 2, ev["end"] + 4, side(B, other, who, ev["start"]), phrase_beats(ev))
++                motion.listen(o, ev["start"] + 2, ev["end"] + 4, side(B, other, who, ev["start"]),
++                              () if ev.get("silent") else phrase_beats(ev))
  
  
  # ---------- camera framings ----------
 -def framing(B, spec, band=False):
 -    x, y, o = _framing(B, spec, band)
 +CU_ORTHO = 4.2  # "cu:who" frame height for a character at the painted sets' standard scale (0.48)
-+def framing(B, spec, band=False, fr=None, toward=None):
++def framing(B, spec, band=False, fr=None, toward=None, favor=None):
 +    """Camera (x, y, ortho) for a spec; `fr` = the frame it's for, so a shot after a walk_to finds the walker;
-+    `toward` = who the subject of a close-up is looking at, so the frame leaves room on that side."""
++    `toward` = who the subject of a close-up is looking at, so the frame leaves room on that side;
++    `favor` = who a wide should lean toward (whoever is talking)."""
 +    x, y, o = _framing(B, spec, band, fr, toward)
++    if favor in B["cast"] and (spec or "wide") == "wide":
++        x += 0.15 * (seat_x(B, favor, fr) - x)
      if B["location"] in locations.PLATE_SETS:  # painted sets: never let the frame run past the painting
          _, off, _ = locs[B["location"]]
          ph = locations.PLATE_O * locations.PLATE_BLEED
-@@ -273,7 +302,7 @@ def framing(B, spec, band=False):
+@@ -273,7 +330,7 @@ def framing(B, spec, band=False):
      return (x, y, o)
  
  
@@ -670,7 +789,7 @@ index 93468b7..5a9b584 100644
      L, off, _ = locs[B["location"]]
      if spec == "wide" or not spec:
          x, y, o = L.cam if V else L.cam_h
-@@ -289,22 +318,29 @@ def _framing(B, spec, band=False):
+@@ -289,22 +346,29 @@ def _framing(B, spec, band=False):
          return (x + off, y, o)
      names = who.split(",")
      if kind == "ots" and len(names) == 2 and not V:  # over the shoulder: favour the 2nd, the 1st cut by the frame edge
@@ -685,7 +804,7 @@ index 93468b7..5a9b584 100644
 +        o = CU_ORTHO * locs[B["location"]][0].seats[seat_of(B, names[0])][2] / 0.48
 +        x = seat_x(B, names[0], fr)
 +        if toward in B["cast"] and toward != names[0]:  # look room: the face sits off-centre, away from its gaze
-+            x += side(B, names[0], toward, fr) * 0.14 * o * F.aspect  # (the camera moves toward the gaze)
++            x += side(B, names[0], toward, fr) * 0.10 * o * F.aspect  # (the camera moves toward the gaze)
 +        return F.eye_framing(x, eye_y(B, names[0]) + 0.2, o, 0.42)
 +    seats = [spot_at(B, w, fr) for w in names]
      ey = eye_y(B, names[0])
@@ -706,20 +825,93 @@ index 93468b7..5a9b584 100644
      return (x + off, y, o)
  
  
-@@ -409,8 +445,10 @@ for bi, B in enumerate(C["beats"]):
+@@ -339,8 +403,14 @@ def caption_at(name, body, f_in, f_out):
+     return box
+ 
+ 
+-def card_at(name, game, text, f_in, f_out, flip=True):
+-    card = on_hud(props.prompt_card(name, game, text, (0, 0), 0.6, w=10.4 if V else 10.0, size=0.72 if V else 0.6), CARD_XY, CARD_S)
++def card_at(name, game, text, f_in, f_out, flip=True, B=None):
++    """A game card on the HUD. With an auto-directed beat (B["card_side"]) it goes on the side the cast isn't."""
++    xy = CARD_XY
++    if B is not None and B.get("card_side") == "auto" and not V:
++        cx = framing(B, "wide", band=True)[0]
++        mean = sum(seat_x(B, w) for w in B["cast"]) / max(1, len(B["cast"]))
++        xy = (abs(CARD_XY[0]) * (-1 if mean > cx else 1), CARD_XY[1])
++    card = on_hud(props.prompt_card(name, game, text, (0, 0), 0.6, w=10.4 if V else 10.0, size=0.72 if V else 0.6), xy, CARD_S)
+     set_visible(card, False, 0)
+     (motion.card_flip_in if flip else motion.pop_in)(card, f_in)
+     motion.pop_out(card, f_out, 5)
+@@ -354,6 +424,36 @@ def head_xy(B, who, f):
+ 
+ 
+ emote_jobs = []  # (B, who, kind, f_in, f_out): placed after the characters are baked
++_soft = {}
++
++
++def dof(B, f0, f1):
++    """Depth of field for a close-up: a soft copy of the set's painting (made once per set by shrinking the image,
++    shown magnified) covers the sharp one from f0 to f1. Painted sets only."""
++    n = B["location"]
++    if n not in locations.PLATE_SETS:
++        return
++    if n not in _soft:
++        sharp = bpy.data.objects[f"{n}_plate"]
++        m = sharp.material_slots[0].material
++        tex = next(nd for nd in m.node_tree.nodes if nd.type == "TEX_IMAGE")
++        im = tex.image.copy()
++        im.name = f"{n}_soft"
++        im.scale(max(64, im.size[0] // 10), max(36, im.size[1] // 10))  # a tenth of the size, shown full size: soft
++        m2 = m.copy()
++        m2.name = f"img:{n}_soft"
++        next(nd for nd in m2.node_tree.nodes if nd.type == "TEX_IMAGE").image = im
++        next(nd for nd in m2.node_tree.nodes if nd.type == "TEX_IMAGE").interpolation = "Linear"
++        soft = sharp.copy()
++        soft.data = sharp.data.copy()
++        soft.data.materials[0] = m2
++        soft.name = f"{n}_plate_soft"
++        soft.location.z = sharp.location.z + 0.05  # just in front of the sharp painting, behind everything else
++        bpy.context.scene.collection.objects.link(soft)
++        set_visible(soft, False, 0)
++        _soft[n] = soft
++    set_visible(_soft[n], True, f0)
++    set_visible(_soft[n], False, f1)
+ 
+ 
+ # ---------- beats ----------
+@@ -364,6 +464,15 @@ for bi, B in enumerate(C["beats"]):
+         CA.cut(st, framing(B, B["camera"]))
+     if B.get("move"):  # a slow camera move across the beat: from its camera to "move" (any camera spec)
+         CA.push(st + 4, en - 4, framing(B, B["move"]), "smooth")
++    elif B.get("creep_insert"):  # an insert creeps in
++        x_, y_, o_ = framing(B, B["camera"])
++        CA.push(st + 4, en - 4, (x_, y_, o_ * 0.92), "smooth")
++    if B.get("dutch"):  # tense: the frame tilts a little
++        CA.tilt(st, en, B["dutch"] * (1 if bi % 2 else -1))
++    for f0_, f1_ in B.get("dof", []):  # close-ups: the background goes soft
++        dof(B, f0_, f1_)
++    if B.get("exit_wide"):
++        CA.cut(B["exit_wide"], framing(B, "wide"))
+     for who in B["cast"]:
+         A(B, who).expr(st, "hype" if who == "riot" else "happy")
+         A(B, who).look(st, 0.0, 4)
+@@ -409,8 +518,13 @@ for bi, B in enumerate(C["beats"]):
              else:
                  caption_at("prevtext", "previously...\n" + props.wrap(ev["previously"], 14.0, 1.2), ev["start"] - 4, ev["end"] + 6)
          speak(B, ev)
 -        if ev.get("camera"):
 -            CA.push(ev["start"] - 10, ev["start"] - 1, framing(B, ev["camera"]), "out")
-+        if ev.get("camera") and ev.get("cut"):  # a cut lands a few frames before the line, like an editor's
-+            CA.cut(ev["start"] - 3, framing(B, ev["camera"], fr=ev["start"], toward=ev.get("to")))
++        if ev.get("camera") and ev.get("cut"):  # a cut lands a few frames before the line (or on its big move)
++            CA.cut(ev.get("cut_at", ev["start"] - 3), framing(B, ev["camera"], fr=ev["start"], toward=ev.get("to"), favor=ev.get("favor")))
 +        elif ev.get("camera"):
 +            CA.push(ev["start"] - 10, ev["start"] - 1, framing(B, ev["camera"], fr=ev["start"]), "out")
++        if ev.get("creep"):  # a long hold: a slow push, so the shot never sits dead still
++            x_, y_, o_ = framing(B, ev["creep"], fr=ev["start"], toward=ev.get("to"))
++            CA.push(ev["start"], ev["end"] + 6, (x_, y_, o_ * 0.93), "smooth")
      # walking on and off: from just past the frame edge to their spot, or from their spot off the side
      if B.get("enter") or B.get("exit"):
          cx, _, co = framing(B, B["camera"])
-@@ -446,6 +484,9 @@ for bi, B in enumerate(C["beats"]):
+@@ -446,10 +560,15 @@ for bi, B in enumerate(C["beats"]):
          L_ = locs[B["location"]][0]
          i_ = L_.spot_names[spot] if isinstance(spot, str) else spot
          I_ = B["_inst"][who]
@@ -729,7 +921,13 @@ index 93468b7..5a9b584 100644
          dx = (L_.seats[i_][0] + locs[B["location"]][1] - seat_x(B, who)) / I_["c"].root.scale.x
          f_ = st + int(sec * S.FPS)
          motion.walk(I_["a"], f_, f_ + motion.WALK, 0.0, dx, hold_until=en + 2)
-@@ -473,6 +514,7 @@ for bi, B in enumerate(C["beats"]):
+         busy(B, who, f_ - 8, f_ + motion.WALK + 6)
++        if B.get("follow"):  # the camera travels with the walker and lands on him
++            CA.push(f_ + 4, f_ + motion.WALK + 6, framing(B, f"close:{who}", fr=f_ + motion.WALK + 1), "smooth")
+     # footprints: walking on sand leaves prints that stay for the rest of the beat
+     if S.SURFACE.get(B["location"]) == "sand":
+         for walks, inn in ((B.get("enter", {}), True), (B.get("exit", {}), False)):
+@@ -473,6 +592,7 @@ for bi, B in enumerate(C["beats"]):
      # group chat: [["Riot", "LIGHT'S ON"], ...] bubbles stack up on the right, each in its sender's colour
      if B.get("chat"):
          CHAT_COL = {"riot": "#FF6B00", "bash": "#E8192C", "pip": "#3D6DFF", "rocco": "#22B573"}
@@ -737,7 +935,7 @@ index 93468b7..5a9b584 100644
          for k, (who_, msg) in enumerate(B["chat"]):
              f_in = st + S.CHAT_IN + k * S.CHAT_EVERY
              col = CHAT_COL.get(who_.lower(), "#6A6A7A")
-@@ -480,7 +522,8 @@ for bi, B in enumerate(C["beats"]):
+@@ -480,7 +600,8 @@ for bi, B in enumerate(C["beats"]):
              cam_x = framing(B, B["camera"])[0]
              right = sum(seat_x(B, w) for w in B["cast"]) / max(1, len(B["cast"])) < cam_x  # bubbles go where the cast isn't
              bx = (18.4 - w_ * TS / 2) if right else (-18.4 + w_ * TS / 2)
@@ -747,7 +945,7 @@ index 93468b7..5a9b584 100644
              bub = empty(f"chat{bi}_{k}", None, (0, 0), 0.5)
              shape(f"chat{bi}_{k}_bg", props.rrect4(-w_ / 2, -1.0, w_ / 2, 1.0, (0.55, 0.55, 0.15, 0.55)), "#FFFFFF", bub, 0.0, smooth=0)
              shape(f"chat{bi}_{k}_bar", props.rrect4(-w_ / 2, 0.2, w_ / 2, 1.0, (0.0, 0.55, 0.55, 0.0)), col, bub, 0.01, ol=0, smooth=0)
-@@ -489,7 +532,15 @@ for bi, B in enumerate(C["beats"]):
+@@ -489,7 +610,15 @@ for bi, B in enumerate(C["beats"]):
              on_hud(bub, (bx, by), TS)
              set_visible(bub, False, 0)
              motion.pop_in(bub, f_in, 6, 1.12, 3)
@@ -764,7 +962,7 @@ index 93468b7..5a9b584 100644
      # transitions: "transition": "fade" fades in from black (a time jump); letterbox bars for cinematic beats
      if B.get("transition") == "fade" or B.get("letterbox"):
          if B.get("transition") == "fade":
-@@ -562,11 +613,19 @@ for bi, B in enumerate(C["beats"]):
+@@ -562,11 +691,19 @@ for bi, B in enumerate(C["beats"]):
              tg = empty(f"title{bi}", None, (0, 0), 0.5)
              glow(f"title{bi}_glow", (0, 0.2), 10.0, 2.6, "#FFC861", 0.009, 50, tg, -0.1)
              n_ = len(word)
@@ -786,7 +984,7 @@ index 93468b7..5a9b584 100644
              if fx.get("sub"):
                  sg = empty(f"title{bi}_sub", tg, (0, -2.6), 0.0)
                  props.outlined_text(f"title{bi}_sub_t", fx["sub"], 1.0, "#FFFFFF", sg, (0, 0), 0.0, 0.06)
-@@ -585,6 +644,13 @@ for bi, B in enumerate(C["beats"]):
+@@ -585,6 +722,13 @@ for bi, B in enumerate(C["beats"]):
              set_visible(cg, False, 0)
              motion.pop_in(cg, t0, 6)
              motion.pop_out(cg, t0 + int(fx.get("for", 2.0) * S.FPS), 5)
@@ -800,7 +998,7 @@ index 93468b7..5a9b584 100644
          elif fx["type"] == "critter":  # a small animal from Porchlight/art/parts/critters, bobbing; ripples on water
              x_, y_ = pt(*fx["at_px"])
              g = empty(f"critter{bi}_{fx['piece']}", None, (x_, y_), fx.get("z", 3.0))
-@@ -593,7 +659,7 @@ for bi, B in enumerate(C["beats"]):
+@@ -593,7 +737,7 @@ for bi, B in enumerate(C["beats"]):
              pcs = {}
              w0_ = None
              for pc in dict.fromkeys([p_ for _, p_ in sched] + ([fx["blink"]] if fx.get("blink") else [])):
@@ -809,7 +1007,16 @@ index 93468b7..5a9b584 100644
                  im_ = bpy.data.images.get(path) or bpy.data.images.load(path)
                  w_, h_ = im_.size
                  w0_ = w0_ or w_  # every pose at the first pose's scale
-@@ -800,7 +866,7 @@ for bi, B in enumerate(C["beats"]):
+@@ -688,7 +832,7 @@ for bi, B in enumerate(C["beats"]):
+         others = [w for w in B["cast"] if w != "riot"]
+         if G["type"] in ("nhie", "mlt"):
+             CA.cut(G["card_in"] - 2, framing(B, "wide", band=True))
+-            card_at(f"card{bi}", G["type"], G["prompt"], G["card_in"], G["card_out"])
++            card_at(f"card{bi}", G["type"], G["prompt"], G["card_in"], G["card_out"], B=B)
+             motion.present(r, G["card_in"] - 2, hold=G["read_end"] - G["card_in"])
+             if C.get("riot_phone"):  # he reads the card off his real phone: left paw brings it up, then down again
+                 f0_, f1_ = G["card_in"] - 4, G["read_end"] + 8
+@@ -800,7 +944,7 @@ for bi, B in enumerate(C["beats"]):
          afters = [e for e in B["events"] if e["id"].startswith(f"{B['id']}_after")]
          for e in afters:  # follow-up lines: the camera goes to whoever speaks unless the line says otherwise
              speak(B, e)
@@ -818,7 +1025,7 @@ index 93468b7..5a9b584 100644
          if G["laughs"]:
              CA.cut(G["laugh"], framing(B, "wide"))
              for k, w in enumerate(["riot"] + others):
-@@ -821,19 +887,24 @@ for bi, B in enumerate(C["beats"]):
+@@ -821,19 +965,24 @@ for bi, B in enumerate(C["beats"]):
                                                   ev_["start"], fmt=F.fmt, y_frac=0.88 if S.SURFACE.get(B["location"]) and B["location"] in locations.PLATE_SETS else 0.8,
                                                   max_chars=22, size=1.45 * TS))  # painted sets: below the bodies
  
@@ -850,7 +1057,7 @@ index 93468b7..5a9b584 100644
  
  # ---------- ending ----------
  EX = -SPACING
-@@ -896,7 +967,9 @@ for n, (L, off, base) in locs.items():
+@@ -896,7 +1045,9 @@ for n, (L, off, base) in locs.items():
  if os.environ.get("SAVE_BLEND", "1") != "0":
      bpy.ops.wm.save_as_mainfile(filepath=os.path.join(OUT, "scene.blend"))
  frames = os.environ.get("FRAMES")
@@ -862,18 +1069,20 @@ index 93468b7..5a9b584 100644
          still(sc, os.path.join(OUT, "stills", f"s_{fr:04d}.png"), fr)
  else:
 diff --git a/templates/episode_script.py b/templates/episode_script.py
-index 3200286..19ea471 100644
+index 3200286..4084aac 100644
 --- a/templates/episode_script.py
 +++ b/templates/episode_script.py
-@@ -3,6 +3,7 @@
+@@ -2,7 +2,8 @@
+ # mood, SFX) chained into one 30-60 s vertical Short or a 2-4 min horizontal YouTube episode.
  #   python3 make.py episode --script examples/campfire-confessions/ep01.json --format vertical|horizontal
  # The JSON shape is documented in Blender/README.md. Pure Python: shared by make.py, mix.py and the scene.
- import json, os
-+import director
+-import json, os
++import json, os, re
++import director, screenplay
  
  FPS = 30
  STANDALONE = True
-@@ -23,6 +24,7 @@ MOVES = ("take", "laugh", "cheer", "nervous", "yell", "shrug", "facepalm", "wave
+@@ -23,9 +24,19 @@ MOVES = ("take", "laugh", "cheer", "nervous", "yell", "shrug", "facepalm", "wave
  GAP, BEAT_PAD = 8, 10      # frames between lines, frames before a beat's first line
  WALK, STEP = 45, 11        # walk on/off timing (motion.WALK, motion.STEP)
  CHAT_IN, CHAT_EVERY = 14, 22  # group chat: first bubble, then one every N frames
@@ -881,7 +1090,28 @@ index 3200286..19ea471 100644
  STORM_EVERY = 150             # frames between lightning flashes in a storm
  SURFACE = {"lake": "sand", "lake_night": "sand", "stoop_sunset": "stone", "stoop_night": "stone", "apartment": "wood",
             "hall": "wood", "campfire": "sand"}
-@@ -45,9 +47,77 @@ def load(cfg):
++SILENT = 36  # frames a silent line ("...") holds: a look, a stare, a reaction without words
++LINE_KEYS = ("do", "face", "camera", "target", "look", "emote", "quiet", "punch", "react", "to", "energy")
++
++
++def silent(l):
++    """A line with no words ("...", "!?") is acted, not voiced."""
++    return l.get("silent") or not re.sub(r"[\W_]+", "", l.get("say", ""))
++
++
+ PORCH = {"click": 24, "black": 32, "logo": 40, "end": 105}  # "ending": "porch_light" timing, frames after the last beat
+ 
+ 
+@@ -33,7 +44,7 @@ def load(cfg):
+     path = cfg.get("script") or ""
+     if not os.path.exists(path):
+         raise SystemExit(f"episode: --script {path!r} not found")
+-    ep = json.load(open(path))
++    ep = screenplay.load(path)[0] if path.endswith(".txt") else json.load(open(path))  # .txt: a plain-text script
+     fmt = cfg.get("format") or "vertical"
+     ep["beats"] = [b for b in ep["beats"] if fmt in b.get("formats", FORMATS)]
+     for bi, b in enumerate(ep["beats"]):
+@@ -45,9 +56,77 @@ def load(cfg):
          if "riot" not in b["cast"] and not (ep.get("riot_optional") and not b.get("game")):
              raise SystemExit(f"episode: beat {b.get('id')} has no Riot (he's in every beat; \"riot_optional\": true allows "
                               "beats without him, except game moments)")
@@ -943,7 +1173,7 @@ index 3200286..19ea471 100644
 +    lines_ = b.get("lines", []) + b.get("after", []) + g.get("after", [])
 +    for l in lines_:
 +        who_ok(l["who"], "line by")
-+        if not str(l.get("say", "")).strip():
++        if not str(l.get("say", "")).strip() and not l.get("silent"):
 +            raise SystemExit(f"{where}: a line by {l['who']} has nothing to say (\"say\" is empty)")
 +        if l.get("do") and l["do"] not in MOVES:
 +            raise SystemExit(f"{where}: do {l['do']!r} ({', '.join(MOVES)})")
@@ -959,7 +1189,30 @@ index 3200286..19ea471 100644
  def hook(cfg):
      ep = load(cfg)
      return cfg.get("hook", "").replace("\\n", "\n") or ep["beats"][0].get("text", "")
-@@ -103,6 +173,18 @@ def lines(cfg):
+@@ -83,7 +162,7 @@ def _game_lines(bid, g):
+         out = [(p + "say", g.get("who", "riot"), g["say"], "say")]
+     else:
+         raise SystemExit(f"episode: unknown game type {t!r} (nhie, mlt, td, alias, feature)")
+-    return out + [(f"{p}after{k:02d}", l["who"], l["say"], "after") for k, l in enumerate(g.get("after", []))]
++    return out + [(f"{p}after{k:02d}", l["who"], l["say"], "after") for k, l in enumerate(g.get("after", [])) if not silent(l)]
+ 
+ 
+ def lines(cfg):
+@@ -93,16 +172,30 @@ def lines(cfg):
+         out.append(("prev", "riot", "Previously... " + ep["previously"]))
+     for b in ep["beats"]:
+         for li, l in enumerate(b.get("lines", [])):
+-            out.append((f"{b['id']}_{li:02d}", l["who"], l["say"]))
++            if not silent(l):
++                out.append((f"{b['id']}_{li:02d}", l["who"], l["say"]))
+         if b.get("game"):
+             out += [(i, w, t) for i, w, t, _ in _game_lines(b["id"], b["game"])]
+         for li, l in enumerate(b.get("after", [])):
+-            out.append((f"{b['id']}_z{li:02d}", l["who"], l["say"]))
++            if not silent(l):
++                out.append((f"{b['id']}_z{li:02d}", l["who"], l["say"]))
+     if ep.get("ending") != "porch_light":  # the porch-light ending is silent
+         out.append(("end", "riot", f"Next time on {ep['series']}: {ep['next']}!" if ep.get("next") else f"{ep['series']}. Free on Friendzy."))
      return out
  
  
@@ -978,39 +1231,46 @@ index 3200286..19ea471 100644
  def timeline(cfg, dur):
      """dur: {line id: seconds}. Returns the beat plan (frames) for the scene, the mix and the chapters."""
      ep = load(cfg)
-@@ -111,7 +193,7 @@ def timeline(cfg, dur):
+@@ -111,9 +204,13 @@ def timeline(cfg, dur):
      wide = (cfg.get("format") or "vertical") == "horizontal"
      GAP, BEAT_PAD, LAUGH = (12, 16, 52) if wide else (8, 10, 40)  # the long cut breathes a little more
      t = 0
 -    beats, voices, sfx, music = [], [], [], []
 +    beats, voices, sfx, music, shots = [], [], [], [], []
  
-     def say(lid, who, text, at, extra=None):
+-    def say(lid, who, text, at, extra=None):
++    def say(lid, who, text, at, extra=None, quiet_line=False):
++        if quiet_line:  # acted, not voiced: no voice, no caption
++            ev = dict(id=lid, who=who, text=text, start=at, end=at + SILENT, silent=True, caption=False)
++            ev.update(extra or {})
++            return ev
          ev = dict(id=lid, who=who, text=text, start=at, end=at + f(dur[lid]))
-@@ -123,7 +205,7 @@ def timeline(cfg, dur):
+         ev.update(extra or {})
+         voices.append([lid, s(at)] + ([ROOM[cur_loc[0]]] if cur_loc[0] in ROOM else []))
+@@ -123,7 +220,7 @@ def timeline(cfg, dur):
          evs = []
          for li, l in enumerate(b.get("lines", [])):
              t += l.get("pause", GAP if li else 0)
 -            ev = say(f"{b['id']}_{li:02d}", l["who"], l["say"], t, {k: l[k] for k in ("do", "face", "camera", "target", "look", "emote", "quiet", "punch", "react") if k in l})
-+            ev = say(f"{b['id']}_{li:02d}", l["who"], l["say"], t, {k: l[k] for k in ("do", "face", "camera", "target", "look", "emote", "quiet", "punch", "react", "to", "energy") if k in l})
++            ev = say(f"{b['id']}_{li:02d}", l["who"], l["say"], t, {k: l[k] for k in LINE_KEYS if k in l}, silent(l))
              evs.append(ev)
              t = ev["end"]
          return evs, t
-@@ -217,7 +299,7 @@ def timeline(cfg, dur):
+@@ -217,7 +314,7 @@ def timeline(cfg, dur):
                  sfx += [["whistle", s(G["timer_in"]), 0.35], ["card_flip", s(G["card_in"]), 0.5], ["ting", s(G["tick"]), 0.5]]
              for k, l in enumerate(g.get("after", [])):
                  t += l.get("pause", GAP)
 -                ev = say(f"{b['id']}_after{k:02d}", l["who"], l["say"], t, {kk: l[kk] for kk in ("do", "face", "camera", "target", "look", "emote", "quiet", "punch", "react") if kk in l})
-+                ev = say(f"{b['id']}_after{k:02d}", l["who"], l["say"], t, {kk: l[kk] for kk in ("do", "face", "camera", "target", "look", "emote", "quiet", "punch", "react", "to", "energy") if kk in l})
++                ev = say(f"{b['id']}_after{k:02d}", l["who"], l["say"], t, {kk: l[kk] for kk in LINE_KEYS if kk in l}, silent(l))
                  B["events"].append(ev)
                  t = ev["end"]
              laughs = g.get("laugh", g["type"] != "feature")  # JSON "laugh": false skips the group laugh
-@@ -230,10 +312,12 @@ def timeline(cfg, dur):
+@@ -230,10 +327,12 @@ def timeline(cfg, dur):
              B["game"] = G
          for li, l in enumerate(b.get("after", [])):
              t += l.get("pause", GAP)
 -            ev = say(f"{b['id']}_z{li:02d}", l["who"], l["say"], t, {k: l[k] for k in ("do", "face", "camera", "target", "look", "emote", "quiet", "punch", "react") if k in l})
-+            ev = say(f"{b['id']}_z{li:02d}", l["who"], l["say"], t, {k: l[k] for k in ("do", "face", "camera", "target", "look", "emote", "quiet", "punch", "react", "to", "energy") if k in l})
++            ev = say(f"{b['id']}_z{li:02d}", l["who"], l["say"], t, {k: l[k] for k in LINE_KEYS if k in l}, silent(l))
              B["events"].append(ev)
              t = ev["end"]
          t += b.get("hold", 20 if b["mood"] == "party" else 10) + (10 if wide else 0)
@@ -1019,7 +1279,7 @@ index 3200286..19ea471 100644
          if b.get("exit"):  # time for the walk off
              t += WALK + 6
          for k in range(len(b.get("chat", []))):  # group-chat bubbles pop in one by one
-@@ -264,6 +348,8 @@ def timeline(cfg, dur):
+@@ -264,6 +363,8 @@ def timeline(cfg, dur):
              n, _, off = name.partition("@")
              sfx.append([n, s(start + f(float(off or 0.1))), 0.4])
          B["end"] = t
@@ -1028,7 +1288,7 @@ index 3200286..19ea471 100644
          beats.append(B)
      end = t
      if ep.get("ending") == "porch_light":  # Porchlight: hold on the porch light, click, black, small Friendzy logo
-@@ -300,9 +386,8 @@ def timeline(cfg, dur):
+@@ -300,9 +401,8 @@ def timeline(cfg, dur):
          chapters.pop()
      return {"beats": beats, "end": end, "end_vo": end_vo, "END": END, "voices": voices, "sfx": sfx,
              "music_segments": music_s,
@@ -1040,9 +1300,9 @@ index 3200286..19ea471 100644
              "chapters": [[s(a), name] for a, name in chapters], "series": ep["series"], "episode": ep["episode"],
              "title": ep.get("title", ""), "next": ep.get("next", ""), "ending": ep.get("ending", "card"),
 -            "riot_phone": ep.get("riot_phone", False)}
-+            "riot_phone": ep.get("riot_phone", False), "shots": director.shot_list(shots) if shots else ""}
++            "riot_phone": ep.get("riot_phone", False), "sit": ep.get("sit"), "shots": director.shot_list(shots) if shots else ""}
 diff --git a/templates/make.py b/templates/make.py
-index 4ebfbf7..50e7b93 100644
+index 4ebfbf7..b3e0c64 100644
 --- a/templates/make.py
 +++ b/templates/make.py
 @@ -10,10 +10,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
@@ -1091,7 +1351,48 @@ index 4ebfbf7..50e7b93 100644
              rows = list(r)
      mine = [x for x in rows if x["video"] == row["video"]]
      if mine:
-@@ -166,13 +181,16 @@ def make(template, prompt, target, name, hook, confess, stills, reuse_voices, fm
+@@ -109,7 +124,15 @@ def main():
+     ap.add_argument("--thumbnail", action="store_true", help="also make a 1280x720 YouTube thumbnail (automatic for horizontal episodes)")
+     ap.add_argument("--cover", action="store_true", help="also make a 1080x1920 cover for Shorts/Reels/TikTok")
+     ap.add_argument("--ones", action="store_true", help="long horizontal episodes render on twos by default; this renders every frame")
++    ap.add_argument("--check", action="store_true", help="episode: check the script and print its length and shot list; "
++                    "no voices, no render (seconds)")
+     a = ap.parse_args()
++    if a.script and a.script.endswith(".txt"):  # a plain-text script: say what it noticed (length, lint)
++        import screenplay
++        for note in screenplay.load(os.path.abspath(a.script))[1]:
++            print("script:", note)
++    if a.check:
++        return check(a.template, os.path.abspath(a.script) if a.script else None, a.format)
+     if a.batch:
+         import prompts
+         targets = ["pip", "bash", "rocco"]
+@@ -124,6 +147,24 @@ def main():
+          os.path.abspath(a.script) if a.script else None, a.jobs, a.ones, a.thumbnail, a.cover)
+ 
+ 
++def check(template, script, fmt):
++    """The script as the engine reads it: validated, timed from estimated line lengths (2.6 words a second), with the
++    auto-director's shot list. Nothing is voiced or rendered, so a draft can be checked in seconds."""
++    S = importlib.import_module(f"{template}_script")
++    cfg = {"template": template, "format": fmt, "script": script}
++    lines = S.lines(cfg)
++    dur = {i: max(0.6, len(t.split()) / 2.6 + 0.3) for i, _, t in lines}
++    cues = S.timeline(cfg, dur)
++    lo, hi = S.length(cfg) if hasattr(S, "length") else (0, 1e9)
++    sec = (cues["END"] + 1) / 30
++    print(f"check: {len(lines)} lines, about {sec:.0f} s ({sec / 60:.1f} min){'' if lo <= sec <= hi else f' - outside {lo}-{hi} s'}")
++    for t, c in cues.get("chapters", []):
++        print(f"  chapter {int(t) // 60}:{int(t) % 60:02d} {c}")
++    if cues.get("shots"):
++        print(cues["shots"].rstrip())
++    print("check: OK (nothing voiced or rendered)")
++
++
+ def make(template, prompt, target, name, hook, confess, stills, reuse_voices, fmt="vertical", script=None, jobs=1, ones=False,
+          thumbnail=False, cover=False):
+     a = types.SimpleNamespace(template=template, prompt=prompt, target=target, name=name, confess=confess,
+@@ -166,13 +207,16 @@ def make(template, prompt, target, name, hook, confess, stills, reuse_voices, fm
          log.append(f"voices: {len(todo)} of {len(lines)} lines in {dt:.0f}s")
      else:
          log.append(f"voices: all {len(lines)} lines reused")
@@ -1110,7 +1411,7 @@ index 4ebfbf7..50e7b93 100644
      log.append(f"length: {(cues['END'] + 1) / 30:.1f}s ({cues['END'] + 1} frames)")
  
      # 3. sound
-@@ -181,6 +199,8 @@ def make(template, prompt, target, name, hook, confess, stills, reuse_voices, fm
+@@ -181,6 +225,8 @@ def make(template, prompt, target, name, hook, confess, stills, reuse_voices, fm
      log.append(f"audio: {o.strip()}")
  
      # 4. render
@@ -1119,7 +1420,7 @@ index 4ebfbf7..50e7b93 100644
      env = dict(os.environ)
      if a.stills:
          env["FRAMES"] = a.stills
-@@ -193,18 +213,22 @@ def make(template, prompt, target, name, hook, confess, stills, reuse_voices, fm
+@@ -193,18 +239,22 @@ def make(template, prompt, target, name, hook, confess, stills, reuse_voices, fm
      t0 = time.time()
      if n == 1:
          run([BLENDER, "--background", "--python", scene_py, "--", out], env=env)
@@ -1188,6 +1489,283 @@ index 5f8cd01..2f38fc2 100644
      mix.add(amb, at, gain)
  if cues.get("music"):
      mood, at, gain, drop0, drop1 = cues["music"]
+diff --git a/templates/screenplay.py b/templates/screenplay.py
+new file mode 100644
+index 0000000..87ce851
+--- /dev/null
++++ b/templates/screenplay.py
+@@ -0,0 +1,271 @@
++# Plain-text episode scripts: write an episode like a screenplay, and this turns it into the episode JSON
++# (written next to the script as <name>.json, so it can be read). make.py accepts either:
++#   python3 make.py episode --script episodes/ep02.txt --format horizontal
++#
++#   # Porchlight 2: Dare House              <- series, episode number, title
++#   next: Summer Homework                    <- optional header lines: next, previously, thumb (2-4 words)
++#
++#   == Cold open | hall, night | riot        <- a scene: chapter | place, time of day | who's in it (costume)
++#   [text: Maple Hollow. Late.]              <- on-screen text (the first scene's is the hook)
++#   RIOT carries a flashlight.
++#   RIOT (determined, whispers): Again.      <- a line; brackets: a face, a move, how it's said, who it's to
++#
++#   == The dare | lake, day | riot (lifeguard), rocco, bash, pip
++#   BASH enters left.
++#   BASH (to pip): Easy.
++#   [game td: Touch the door of the haunted house. | bash | Easy!]
++#
++# Bracketed cues: [text: ...] [card: Later that night.] [sfx: door] [storm] [fade] [letterbox] [mood: tense]
++# [hold: 2] (seconds) [camera: close riot] [chat] (then "Name: message" lines up to a blank line)
++# [game nhie: prompt | target | confession] [game mlt: prompt | target] [game td: dare | player | performance]
++# [json: {...}] (anything else, merged into the scene as-is). "--" starts a new beat in the same scene.
++# Action lines: NAME enters left|right. NAME exits left|right. NAME walks to the <spot>. NAME sits on the <spot>.
++# NAME stands at <spot>. NAME is asleep. NAME carries a phone|flashlight|cup.
++# Plain Python (no Blender).
++import json, os, re
++
++ROSTER = ("riot", "bash", "pip", "rocco")  # characters the cast code can draw (new ones join here)
++COSTUMES = ("hoodie", "mafia", "dare", "coach", "host", "lifeguard")
++# place + time of day -> painted set (locations.PLATE_SETS); a set's own name works too
++SETS = {("lake", "day"): "lake", ("lake", "afternoon"): "lake", ("lake", "night"): "lake_night",
++        ("lake", "evening"): "lake_night", ("stoop", "sunset"): "stoop_sunset", ("stoop", "evening"): "stoop_sunset",
++        ("stoop", "night"): "stoop_night", ("apartment", None): "apartment", ("hall", None): "hall",
++        ("haunted house", None): "hall", ("campfire", None): "campfire", ("car", None): "car",
++        ("party room", None): "party_room", ("game show", None): "game_show", ("village", "night"): "village_night",
++        ("living room", "day"): "living_room_day", ("living room", "night"): "living_room_night"}
++SET_NAMES = {v for v in SETS.values()}
++TIMES = {"day": 0, "afternoon": 1, "sunset": 2, "evening": 2, "night": 3}  # a jump backwards = a new day
++MOVES = ("take", "laugh", "cheer", "nervous", "yell", "shrug", "facepalm", "wave", "thumbs", "present", "hop",
++         "double_take", "point", "munch", "fan", "shiver", "stare")
++QUIET = ("whispers", "whispering", "quietly", "softly", "quiet", "under his breath")
++LONG_WORDS = 22          # lint: a line longer than this is hard to act and to read as a caption
++WORDS_PER_SEC = 2.6      # length estimate for voiced lines
++
++
++class ScriptError(SystemExit):
++    pass
++
++
++def _err(n, msg):
++    raise ScriptError(f"script line {n}: {msg}")
++
++
++def _who(name, n, cast=None):
++    w = name.strip().lower()
++    if w not in ROSTER:
++        _err(n, f"{name.strip()!r} isn't a character yet ({', '.join(ROSTER)})")
++    if cast is not None and w not in cast:
++        _err(n, f"{name.strip()} isn't in this scene (add them to the scene heading: {', '.join(cast)})")
++    return w
++
++
++def _set_for(place, n):
++    p = place.strip().lower()
++    if "," in p:
++        where, when = (x.strip() for x in p.split(",", 1))
++    else:
++        where, when = p, None
++    if where.replace(" ", "_") in SET_NAMES and when is None:
++        return where.replace(" ", "_"), None
++    for key in ((where, when), (where, None)):
++        if key in SETS:
++            return SETS[key], when
++    known = sorted({f"{a}{', ' + b if b else ''}" for a, b in SETS})
++    _err(n, f"no painted set for {place.strip()!r} yet (known: {'; '.join(known)})")
++
++
++def parse(text, path="script"):
++    """Script text -> (episode dict, notes). Notes: lint warnings and the length estimate."""
++    ep = {"series": "Porchlight", "episode": 0, "title": "", "next": "", "beats": [],
++          # Porchlight defaults: the auto-director, the porch-light ending, the lo-fi bed, scenes without Riot,
++          # Riot reading game cards off his phone, sitters on furniture
++          "direct": "auto", "ending": "porch_light", "beds": {"normal": "lofi"}, "riot_optional": True,
++          "riot_phone": True, "sit": "auto"}
++    notes, beat, scene = [], None, None
++    lines = text.splitlines()
++    i = 0
++
++    def new_beat(head):
++        nonlocal beat
++        beat = {"id": f"s{len(ep['beats']) + 1:02d}", "location": head["location"], "cast": dict(head["cast"]),
++                "lines": [], "camera": "wide"}
++        last = next((b.get("chapter") for b in reversed(ep["beats"]) if b.get("chapter")), None)
++        if head.get("chapter") and not head.get("_chaptered") and head["chapter"] != last:  # one chapter per name in a row
++            beat["chapter"] = head["chapter"]
++        head["_chaptered"] = True
++        ep["beats"].append(beat)
++        return beat
++
++    while i < len(lines):
++        raw = lines[i]
++        n = i + 1
++        line = raw.strip()
++        i += 1
++        if not line or line.startswith("//"):
++            continue
++        m = re.match(r"#\s*(.+?)\s+(\d+)\s*:\s*(.+)$", line)
++        if m and not ep["beats"]:
++            ep["series"], ep["episode"], ep["title"] = m.group(1).strip(), int(m.group(2)), m.group(3).strip()
++            continue
++        m = re.match(r"(next|previously|thumb)\s*:\s*(.+)$", line, re.I)
++        if m and not ep["beats"]:
++            k = m.group(1).lower()
++            ep["thumb_text" if k == "thumb" else k] = m.group(2).strip()
++            continue
++        if line.startswith("=="):  # a scene heading
++            parts = [p.strip() for p in line[2:].split("|")]
++            if len(parts) == 2:
++                parts = [None] + parts
++            if len(parts) != 3:
++                _err(n, "a scene heading is  == Chapter | place, time | who (costume), who ...")
++            chapter, place, who = parts
++            loc, when = _set_for(place, n)
++            cast = {}
++            for item in filter(None, (w.strip() for w in who.split(","))):
++                mm = re.match(r"([A-Za-z]+)\s*(?:\((\w+)\))?$", item)
++                if not mm:
++                    _err(n, f"can't read {item!r} in the cast (write: riot (lifeguard), rocco)")
++                w = _who(mm.group(1), n)
++                cos = mm.group(2).lower() if mm.group(2) else None
++                if cos and cos not in COSTUMES:
++                    _err(n, f"no costume {cos!r} ({', '.join(COSTUMES)})")
++                cast[w] = cos
++            prev = scene
++            scene = {"location": loc, "cast": cast, "chapter": chapter or place.split(",")[0].strip().title(), "when": when}
++            b = new_beat(scene)
++            if prev and prev.get("when") and when and TIMES.get(when, 0) != TIMES.get(prev["when"], 0):
++                b["transition"] = "fade"  # time passes between these scenes: a fade through black
++            continue
++        if scene is None:
++            _err(n, "the script needs a scene heading (== Chapter | place, time | who) before anything else")
++        if line == "--":  # a new beat, same place and people
++            new_beat(scene)
++            continue
++        m = re.match(r"\[(\w+)(?:\s+(\w+))?\s*(?::\s*(.*))?\]$", line)
++        if m:
++            cue, sub, arg = m.group(1).lower(), (m.group(2) or "").lower(), (m.group(3) or "").strip()
++            if cue == "text":
++                beat["text"] = arg
++            elif cue == "card":
++                beat.setdefault("fx", []).append({"type": "card", "text": arg, "at": 0.2, "for": 2.0})
++            elif cue == "sfx":
++                beat.setdefault("sfx", []).append(arg)
++            elif cue in ("storm", "fade", "letterbox"):
++                beat[{"storm": "weather", "fade": "transition", "letterbox": "letterbox"}[cue]] = \
++                    {"storm": "storm", "fade": "fade", "letterbox": True}[cue]
++            elif cue == "mood":
++                beat["mood"] = arg
++            elif cue == "hold":
++                beat["hold"] = int(float(arg) * 30)
++            elif cue == "camera":
++                kind, _, rest = arg.partition(" ")
++                beat["camera"] = f"{kind}:{','.join(_who(x, n, beat['cast']) for x in rest.split(','))}" if rest else kind
++            elif cue == "chat":
++                beat["chat"] = []
++                while i < len(lines) and lines[i].strip():
++                    who_, _, msg = lines[i].strip().partition(":")
++                    if not msg:
++                        _err(i + 1, "a chat line is  Name: message")
++                    beat["chat"].append([who_.strip(), msg.strip()])
++                    i += 1
++            elif cue == "game":
++                fields = [f.strip() for f in arg.split("|")]
++                if sub == "nhie" and len(fields) == 3:
++                    g = {"type": "nhie", "prompt": fields[0], "target": _who(fields[1], n, beat["cast"]), "confess": fields[2]}
++                elif sub == "mlt" and len(fields) == 2:
++                    g = {"type": "mlt", "prompt": fields[0], "target": _who(fields[1], n, beat["cast"])}
++                elif sub == "td" and len(fields) == 3:
++                    g = {"type": "td", "prompt": fields[0], "player": _who(fields[1], n, beat["cast"]), "perform": fields[2]}
++                else:
++                    _err(n, "[game nhie: prompt | target | confession]  [game mlt: prompt | target]  "
++                            "[game td: dare | player | performance]")
++                if beat.get("game"):  # one game per beat: the rest of the scene goes on in a new beat
++                    new_beat(scene)
++                beat["game"] = g
++            elif cue == "json":
++                try:
++                    beat.update(json.loads(arg))
++                except json.JSONDecodeError as e:
++                    _err(n, f"[json: ...] isn't valid JSON ({e})")
++            else:
++                _err(n, f"unknown cue [{cue}] (text, card, sfx, storm, fade, letterbox, mood, hold, camera, chat, game, json)")
++            continue
++        m = re.match(r"([A-Za-z]+)\s*(?:\(([^)]*)\))?\s*:\s*(.+)$", line)
++        if m and m.group(1).lower() in ROSTER:  # dialogue
++            who = _who(m.group(1), n, beat["cast"])
++            say = m.group(3).strip()
++            l = {"who": who, "say": say}
++            for tok in filter(None, (t.strip().lower() for t in (m.group(2) or "").split(","))):
++                if tok in MOVES:
++                    l["do"] = tok
++                elif tok in QUIET:
++                    l["quiet"] = True
++                elif tok in ("joke", "punchline", "punch"):
++                    l["punch"] = True
++                elif tok.startswith("to "):
++                    l["to"] = _who(tok[3:], n, beat["cast"])
++                elif tok.startswith("looks "):  # "looks up", "looks at pip"
++                    t = tok[6:].strip()
++                    l["look"] = _who(t[3:], n, beat["cast"]) if t.startswith("at ") else t.replace(" ", "_")
++                elif tok.startswith("reaction "):
++                    l["react"] = _who(tok[9:], n, beat["cast"])
++                else:
++                    l["face"] = tok  # checked against the faces when the scene is built
++            if beat.get("game"):  # lines after a game moment are its follow-ups
++                beat["game"].setdefault("after", []).append(l)
++            else:
++                beat["lines"].append(l)
++            if len(say.split()) > LONG_WORDS:
++                notes.append(f"line {n}: {len(say.split())} words is long to act and to caption; split it?")
++            continue
++        m = re.match(r"([A-Za-z]+)\s+(enters|exits)\s+(?:from\s+(?:the\s+)?)?(left|right)\.?$", line, re.I)
++        if m:
++            who = _who(m.group(1), n, beat["cast"])
++            beat.setdefault("enter" if m.group(2).lower() == "enters" else "exit", {})[who] = m.group(3).lower()
++            continue
++        m = re.match(r"([A-Za-z]+)\s+walks\s+to\s+(?:the\s+)?([\w ]+?)\.?$", line, re.I)
++        if m:
++            who = _who(m.group(1), n, beat["cast"])
++            at = sum(len(x.get("say", "").split()) for x in beat["lines"]) / WORDS_PER_SEC + 0.5
++            beat.setdefault("walk_to", {})[who] = [m.group(2).strip().lower().replace(" ", "_"), round(at, 1)]
++            continue
++        m = re.match(r"([A-Za-z]+)\s+(?:sits|stands|lies)\s+(?:on|in|at)\s+(?:the\s+)?([\w ]+?)\.?$", line, re.I)
++        if m:
++            who = _who(m.group(1), n, beat["cast"])
++            beat.setdefault("seats", {})[who] = m.group(2).strip().lower().replace(" ", "_")
++            continue
++        m = re.match(r"([A-Za-z]+)\s+is\s+asleep\.?$", line, re.I)
++        if m:
++            beat.setdefault("asleep", []).append(_who(m.group(1), n, beat["cast"]))
++            continue
++        m = re.match(r"([A-Za-z]+)\s+(?:carries|holds)\s+(?:a|an|his|the)\s+(\w+)\.?$", line, re.I)
++        if m:
++            beat.setdefault("carry", {})[_who(m.group(1), n, beat["cast"])] = m.group(2).lower()
++            continue
++        _err(n, f"can't read this line: {line!r}\n  (dialogue is  NAME: words;  actions are  NAME enters left / exits right / "
++                "walks to the step / sits on the sofa / is asleep / carries a phone;  cues are in [brackets])")
++    if not ep["beats"]:
++        raise ScriptError("the script has no scenes (a scene starts with  == Chapter | place, time | who)")
++    first = ep["beats"][0]
++    first.setdefault("text", ep["title"] or "")
++    if len(ep["beats"]) > 1 and first.get("chapter"):
++        first.setdefault("letterbox", True)  # the cold open gets the cinematic bars
++    # lint: scenes where nobody does anything physical
++    for b in ep["beats"]:
++        busy = b.get("enter") or b.get("exit") or b.get("walk_to") or b.get("carry") or b.get("game") or \
++            b.get("asleep") or any(l.get("do") for l in b["lines"])
++        if len(b["lines"]) >= 4 and not busy:
++            notes.append(f"scene {b['id']} ({b.get('chapter', b['location'])}): {len(b['lines'])} lines and nobody does "
++                         "anything physical; add a move, a walk or a prop?")
++    words = sum(len(l["say"].split()) for b in ep["beats"] for l in b["lines"] + (b.get("game") or {}).get("after", []))
++    est = words / WORDS_PER_SEC + sum(len(b["lines"]) for b in ep["beats"]) * 0.45 + len(ep["beats"]) * 1.2 + \
++        sum(14 for b in ep["beats"] if b.get("game")) + 4
++    notes.append(f"about {est / 60:.1f} min ({words} spoken words){'' if 110 <= est <= 250 else ' - Porchlight episodes run 2-4 min'}")
++    return ep, notes
++
++
++def load(path):
++    """Read a .txt script, write <name>.json beside it, return the episode dict and the notes."""
++    ep, notes = parse(open(path, encoding="utf-8").read(), path)
++    json.dump(ep, open(os.path.splitext(path)[0] + ".json", "w"), indent=1)
++    return ep, notes
 diff --git a/templates/sticker.py b/templates/sticker.py
 index c7ccee7..181e949 100644
 --- a/templates/sticker.py
@@ -1202,7 +1780,7 @@ index c7ccee7..181e949 100644
  RAW = 1200          # raw render size (square); cropped and scaled down afterwards (supersampled edges)
  MAX_BYTES = 8 * 1024 * 1024
 diff --git a/templates/thumbnail.py b/templates/thumbnail.py
-index 670da5d..491f779 100644
+index 670da5d..08107c5 100644
 --- a/templates/thumbnail.py
 +++ b/templates/thumbnail.py
 @@ -10,7 +10,7 @@ import argparse, json, os, subprocess, sys, tempfile
@@ -1214,8 +1792,13 @@ index 670da5d..491f779 100644
  FONT = os.path.normpath(os.path.join(ROOT, "../Friendzy/Resources/Fonts/Boogaloo-Regular.ttf"))
  ORANGE, YELLOW, OFFBLACK, CHALK = "#FF6B00", "#FFD600", "#121212", "#F5F0E8"
  LOCATIONS = ("campfire", "living_room_day", "living_room_night", "car", "game_show", "village_night", "party_room")
-@@ -28,11 +28,12 @@ def plan(out, text=None):
-         ep = json.load(open(cfg["script"]))
+@@ -25,14 +25,16 @@ def plan(out, text=None):
+     t = cfg.get("template", "")
+     loc, cast_, words = TEMPLATE_SET.get(t, "living_room_day"), None, None
+     if t == "episode" and cfg.get("script"):
+-        ep = json.load(open(cfg["script"]))
++        sp = cfg["script"]
++        ep = json.load(open(os.path.splitext(sp)[0] + ".json" if sp.endswith(".txt") else sp))  # a .txt script writes its JSON beside it
          words = ep.get("thumb_text") or ep.get("title")
          th = ep.get("thumb", {})
 -        loc = th.get("location") or ep["beats"][0].get("location", "campfire")
@@ -1229,7 +1812,7 @@ index 670da5d..491f779 100644
              cast_ = [(tgt, None, "nervous", "idle"), ("riot", None, "shocked", "point")]
      else:
          try:
-@@ -83,10 +84,24 @@ for k, (who, costume, expr, pose) in enumerate(ARGS["cast"]):
+@@ -83,10 +85,24 @@ for k, (who, costume, expr, pose) in enumerate(ARGS["cast"]):
      if n == 2:  # face each other a little
          c.turn(0.45 if k == 0 else -0.45)
      chars.append(c)
@@ -1255,7 +1838,7 @@ index 670da5d..491f779 100644
  still(sc, ARGS["png"], 0)
  '''
  
-@@ -136,14 +151,17 @@ def big_text(draw, img_w, words, box, font_path, max_size, fill, stroke):
+@@ -136,14 +152,17 @@ def big_text(draw, img_w, words, box, font_path, max_size, fill, stroke):
      return y
  
  
@@ -1275,7 +1858,7 @@ index 670da5d..491f779 100644
  
  
  def make(out, cover=False, text=None):
-@@ -171,8 +189,8 @@ def make(out, cover=False, text=None):
+@@ -171,8 +190,8 @@ def make(out, cover=False, text=None):
          mark(d, (60, 240), 52)
          big_text(d, W, words, (60, 340, W - 160, 700), FONT, 190, YELLOW, OFFBLACK)
      else:  # YouTube: words across the top, mark top-right, the bottom-right timestamp corner stays empty
