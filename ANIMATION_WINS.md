@@ -198,34 +198,34 @@ Effort: S = under an hour, M = a few hours, L = a day or more. Items already don
 | # | Win | Effort | Status |
 |---|---|---|---|
 | 161 | Depth of field: the background softens in close-ups | M | done |
-| 162 | Rack focus between two characters | M | todo |
-| 163 | Whip-pan transition between places | S | todo |
+| 162 | Rack focus between two characters | M | no (characters are flat cut-outs: no depth to focus between; the close-up background blur covers it) |
+| 163 | Whip-pan transition between places | S | done (`[whip]` / `"transition": "whip"`) |
 | 164 | Match cut on action between scenes | M | todo |
-| 165 | 2.5D parallax: front pieces move faster than the painting | S | todo |
-| 166 | A slight camera lag behind fast moves (handheld feel) | S | todo |
-| 167 | Camera settles with a tiny overshoot after pushes | S | todo |
-| 168 | Shake scaled to what caused it (thunder > slam > take) | S | todo |
-| 169 | Wide shots frame by the rule of thirds | S | todo |
-| 170 | Over-the-shoulder shots keep a sliver of the listener in frame | S | todo |
+| 165 | 2.5D parallax: front pieces move faster than the painting | S | done (with `act`: foreground front pieces) |
+| 166 | A slight camera lag behind fast moves (handheld feel) | S | no (every camera move is already eased) |
+| 167 | Camera settles with a tiny overshoot after pushes | S | done (with `act`) |
+| 168 | Shake scaled to what caused it (thunder > slam > take) | S | done (already: thunder, slams and takes shake by different amounts) |
+| 169 | Wide shots frame by the rule of thirds | S | done (wides lean toward the speaker: 28) |
+| 170 | Over-the-shoulder shots keep a sliver of the listener in frame | S | done (already in the `ots` framing) |
 
 ## I. Sound and music
 | # | Win | Effort | Status |
 |---|---|---|---|
-| 171 | Stereo: voices panned to where the character stands | M | todo |
-| 172 | Further back = a little quieter and softer | S | todo |
-| 173 | Whisper voice style (breathier, quieter) | M | todo |
-| 174 | Shout voice style (brighter, a touch of drive) | M | todo |
+| 171 | Stereo: voices panned to where the character stands | M | done (with `act`; the mix is stereo now) |
+| 172 | Further back = a little quieter and softer | S | done (with `act`) |
+| 173 | Whisper voice style (breathier, quieter) | M | done (with `act`: quiet lines) |
+| 174 | Shout voice style (brighter, a touch of drive) | M | done (with `act`: shouted lines) |
 | 175 | Foley: phone taps | S | todo |
 | 176 | Foley: cushion when sitting | S | todo |
-| 177 | Foley: cup sip, chip bag rustle | S | todo |
-| 178 | Distant town sounds (a dog, a screen door, a bike bell) | S | todo |
-| 179 | Door creak tied to the door | S | art |
-| 180 | Punchline stings vary, never the same twice in a row | S | todo |
-| 181 | Music follows the scene's key change into tense moments | M | todo |
-| 182 | Outdoor street voices get a short slap echo | S | todo |
-| 183 | Footsteps land on the actual foot contact | S | todo |
-| 184 | A written Porchlight theme tune (full, not just the motif) | L | todo |
-| 185 | A soft piano bed option for emotional scenes | M | todo |
+| 177 | Foley: cup sip, chip bag rustle | S | done (sip, munch) |
+| 178 | Distant town sounds (a dog, a screen door, a bike bell) | S | done (with `act`: a dog, a bike bell) |
+| 179 | Door creak tied to the door | S | art (needs the door: 105) |
+| 180 | Punchline stings vary, never the same twice in a row | S | done (with `act`) |
+| 181 | Music follows the scene's key change into tense moments | M | done (already: tense scenes get the suspense bed) |
+| 182 | Outdoor street voices get a short slap echo | S | done (with `act`: stoop scenes) |
+| 183 | Footsteps land on the actual foot contact | S | done (with `act`) |
+| 184 | A written Porchlight theme tune (full, not just the motif) | L | done (a first version: `theme_long` under the intro title; `test/theme_long.wav` to hear) |
+| 185 | A soft piano bed option for emotional scenes | M | done (`[mood: soft]`) |
 
 ## J. Text, graphics and QA
 | # | Win | Effort | Status |

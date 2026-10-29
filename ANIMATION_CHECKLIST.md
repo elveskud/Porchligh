@@ -292,6 +292,7 @@ The reference for making every episode look and move right. Read the rules befor
 | Pipeline review (29 Oct) | After a `walk_to`, cameras, looks and dust still used the old spot | Fixed: shots and looks after the walk find the walker |
 | Pipeline review (29 Oct) | Emotes stayed where the character was placed (a "?" hung in the air while he walked in) | Fixed: emotes ride with the character |
 | Pipeline review (29 Oct) | Every copy of a character after the first (the same character in another place in the episode) lost its torso bend, walking stride, hoodie strings and chest turn: the body was found by name and Blender names copies "riot_body.001" | Fixed (`cast.body_of`) |
+| Pipeline review (29 Oct) | Every video's sound was really about -11 LUFS, not -14: loudness was measured on the mono mix, then written as two identical stereo channels (which read 3 dB louder) | Fixed: measured as the stereo file (checked with ffmpeg's EBU R128 meter: -14.0) |
 | Pipeline review (29 Oct) | Two new characters in one beat got the same spot | Fixed: each gets the next free spot (or a clear error) |
 | Pipeline review (29 Oct) | Title letters were evenly spaced, so the narrow "I" left gaps ("PORCHL I GHT") | Fixed: spaced by each letter's width |
 | Pipeline review (29 Oct) | The camera could drift back to an old shot mid-line when a reaction cut or a quiet-line push met a line's own camera | Fixed in the camera itself |
