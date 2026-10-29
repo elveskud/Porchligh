@@ -58,4 +58,14 @@ same folders), or `git apply blender-fixes.patch` inside the Blender folder. The
 - A cushion thud when someone walks in and sits on a sofa, chair, bench or step.
 - Thumbnails without a game use the episode's biggest line: its speaker yelling, the listener shocked.
 
+## Feel pass (after the 200 wins)
+- **Weight:** each character has a weight (Bash heavy, Pip light). Heavy hops are lower with a harder landing;
+  heavy footfalls squash more.
+- **Flinch:** when someone shouts, the others jolt back away from them and blink.
+- **Eye contact:** characters look up at someone taller and down at someone shorter.
+- **Handheld camera** in tense scenes; **an opening pan** across the painting when a scene moves to a new place.
+- **`"grade"`** (summer, autumn, winter, faded) and **`"grain": true`** (soft film grain, added at the encode,
+  also on stills). Screenplay headers `grade:` and `grain: on`.
+- **Clothes rustle** on big moves.
+
 Everything new is opt-in from the episode JSON; the Shorts and Episode 1 behave as before (apart from the fixes).

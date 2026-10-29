@@ -26,6 +26,7 @@ ROCCO: ...
 |---|---|
 | `# Porchlight 2: Dare House` | series, episode number, title (first line) |
 | `next:` / `previously:` / `thumb:` | the next episode's name, a recap line, 2–4 thumbnail words |
+| `grade: summer` / `grain: on` | the episode's colour grade (summer, autumn, winter, faded; lighter at night) and a soft film grain |
 | `== Chapter \| place, time \| who (costume), who` | a new scene. Places: lake (day/night), stoop (sunset/night), apartment, hall. A change of time of day fades through black. The first scene gets letterbox bars (the cold open). |
 | `NAME: words` | a line |
 | `NAME (nervous): words` | a face: happy, hype, cocky, shocked, nervous, suspicious, sad, soft, scared, embarrassed, determined, yelling, smug, pouting, sleepy... |

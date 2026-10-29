@@ -181,3 +181,111 @@ right, full body, every one separate on a plain white background, all the same h
 8) a hedgehog on a bicycle.
 Simple shapes, readable from far away. NO text, NO labels, NO numbers.
 ```
+
+---
+
+## E. Drawing references for the cast (for Claude to copy in code, never used in the video)
+
+These are **guides only**: the cast stays code-drawn (round 11). Gemini's drawings are often off-model, and that's
+fine here, because only the *angle and pose* are copied, not the drawing. Attach `refs/lineup.png` as image 1.
+Save into `art/gemini/refs/` with the name shown. One image per character where it says `<NAME>`: do Riot first,
+then Bash, Pip and Rocco.
+
+### E1. Turnaround (side view) → `turnaround_<name>.jpg`
+```
+Image 1 shows the four main characters of a 2D cartoon series. Draw ONLY <NAME> (the <fox / bear / bunny / raccoon>
+in image 1), keeping his exact design, colours, clothes and proportions.
+A character turnaround sheet: the same character standing in a relaxed pose, shown 4 times side by side, all the
+same height, feet on the same line: 1) front view  2) three-quarter view turned to the right  3) side view
+(profile) facing right  4) back view.
+Bold clean black outlines, flat solid colours with ONE darker shadow tone, simple rounded shapes, no texture.
+Plain white background. NO text, NO labels, NO numbers, NO other characters.
+```
+
+### E2. Side-view walk and run → `walk_<name>.jpg`
+```
+Image 1 shows the four main characters of a 2D cartoon series. Draw ONLY <NAME> (the <fox / bear / bunny / raccoon>
+in image 1), keeping his exact design, colours, clothes and proportions.
+An animation walk cycle in SIDE VIEW, facing right: 8 poses in a row, all the same size, feet on the same ground
+line: contact, down, passing, up, contact (other leg), down, passing, up. Below it, a run cycle in side view,
+facing right: 4 poses in a row. Arms swing opposite to the legs. <WALK STYLE>
+Bold clean black outlines, flat solid colours with ONE darker shadow tone, no texture. Plain white background.
+NO text, NO labels, NO numbers, NO motion lines.
+```
+Walk style per character (paste in place of `<WALK STYLE>`):
+- Riot: `A confident, bouncy walk, chest out, a little swagger.`
+- Bash: `A heavy, slow walk, big steps, body rocking side to side, arms swinging wide.`
+- Pip: `Quick small steps, light on his toes, ears bouncing.`
+- Rocco: `A relaxed, loose walk, slightly hunched, paws near his pockets.`
+
+### E3. Poses → `poses_<name>.jpg`
+```
+Image 1 shows the four main characters of a 2D cartoon series. Draw ONLY <NAME> (the <fox / bear / bunny / raccoon>
+in image 1), keeping his exact design, colours, clothes and proportions, seen from the FRONT like in image 1.
+A pose sheet, 8 poses in two rows, all the same scale, each one separate:
+1) lying back on a beanbag, relaxed, arms behind his head
+2) sitting cross-legged on the ground
+3) kneeling on one knee
+4) running toward the viewer
+5) tripping forward, arms out, surprised
+6) jumping in the air, knees up (a cannonball jump)
+7) climbing, reaching up with one paw
+8) sitting on a step, elbows on his knees, chin in his paws
+Draw ONLY the character (the beanbag and the step as simple flat shapes). Bold clean black outlines, flat solid
+colours with ONE darker shadow tone, no texture. Plain white background. NO text, NO labels, NO numbers.
+```
+
+### E4. Paws → `paws_<name>.jpg`
+```
+Image 1 shows the four main characters of a 2D cartoon series. Draw ONLY the paws (hands) of <NAME>
+(the <fox / bear / bunny / raccoon> in image 1), in the same cartoon style: big simple 4-finger paws.
+A hand sheet, 10 paws in two rows, same size, each separate: open palm, relaxed, fist, pointing with one finger,
+thumbs up, holding a cup, holding a phone, grabbing, counting two fingers, waving.
+Bold clean black outlines, flat solid colours with ONE darker shadow tone. Plain white background.
+NO text, NO labels, NO numbers.
+```
+
+---
+
+## F. Set pieces that move (trees, fan, curtain, doors) and depth layers
+
+For each painted set: one **clean plate** (the same painting with the moving thing removed) and the **moving thing
+alone** on flat magenta, so the pipeline can cut it out and sway, turn or open it. Attach the set's painting as
+image 1. Save into `art/gemini/sets/` with the name shown.
+
+| Set painting (image 1) | Moving thing | Names |
+|---|---|---|
+| `lake_day_v3.jpg` | the trees | `lake_day_v3_clean.jpg`, `lake_day_v3_trees.png` |
+| `stoop_sunset_v2.jpg` | the trees | `stoop_sunset_v2_clean.jpg`, `stoop_sunset_v2_trees.png` |
+| `apartment_night_v2.jpg` | the ceiling fan (if there's one; skip if not) | `apartment_night_v2_clean.jpg`, `apartment_night_v2_fan.png` |
+| `hall_inside_night_v2.jpg` | the curtains | `hall_inside_night_v2_clean.jpg`, `hall_inside_night_v2_curtain.png` |
+| `stoop_night_v3.jpg` (A1) | the front door, closed | `stoop_night_v3_clean.jpg`, `stoop_night_v3_door.png` |
+
+### F1. Clean plate → `<set>_clean.jpg`
+```
+Redraw image 1 exactly: same size, same composition, same style, same colours, every object in the same place.
+One change: remove the <MOVING THING> completely and paint what would be behind it (<sky and far hills / the wall /
+the dark doorway>), so the picture still looks complete. NO characters, NO text. Same size as image 1.
+```
+
+### F2. The moving thing alone → `<set>_<thing>.png`
+```
+From image 1, draw ONLY the <MOVING THING>, exactly as it is in image 1: same size, same position in the frame,
+same style and colours. Everything else in the picture is flat pure magenta (#FF00FF), with no shading and no
+gradient. Same size as image 1. NO text.
+```
+
+### F3. Depth layers (for camera moves through the set) → `<set>_far.jpg`, `<set>_mid.png`, `<set>_near.png`
+Do this for `lake_day_v3.jpg` first; if it works, the other sets. Three prompts, image 1 = the set painting:
+```
+Redraw image 1 exactly, same size and style, showing ONLY the far background: <the sky, clouds, far hills and the
+far side of the lake>. Paint over everything closer so the far background continues behind it. NO text.
+```
+```
+From image 1, draw ONLY the middle ground: <the water, the dock and the beach>, exactly as in image 1, same size and
+position. Everything else is flat pure magenta (#FF00FF). NO text.
+```
+```
+From image 1, draw ONLY the nearest things: <the grass, rocks and plants at the bottom edge>, exactly as in image 1,
+same size and position. Everything else is flat pure magenta (#FF00FF). NO text.
+```

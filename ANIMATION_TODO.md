@@ -54,6 +54,8 @@ The user asked (29 Oct 2026) to fix all 37, working until the session limit. Sta
 | `"ending": "porch_light"` | episode | porch light clicks off, black, small Friendzy logo |
 | `"beds": {"normal": "lofi"}` | episode | lo-fi music for normal scenes |
 | `"riot_phone": true` | episode | Riot reads game cards off his phone |
+| `"grade": "summer"` | episode | colour grade over every scene: `summer`, `autumn`, `winter`, `faded` (a lighter touch on night sets) |
+| `"grain": true` | episode | soft film grain, added when the video is encoded (and on stills) |
 | `"seats": {"bash": "sofa_l"}` | beat | named spots per painted set: `sofa_l`, `sofa_r`, `beanbag` (apartment), `tower` (lake), `step` (stoop), `edge` (hall), or 0–3 standing |
 | `"enter": {"bash": "left"}`, `"exit": {"rocco": "right"}` | beat | walk on/off with steps, arm swing, footsteps, footprints on sand |
 | `"exit_sfx": "door"` | beat | a sound as the walk off ends |
