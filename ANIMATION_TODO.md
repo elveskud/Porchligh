@@ -56,6 +56,11 @@ The user asked (29 Oct 2026) to fix all 37, working until the session limit. Sta
 | `"riot_phone": true` | episode | Riot reads game cards off his phone |
 | `"grade": "summer"` | episode | colour grade over every scene: `summer`, `autumn`, `winter`, `faded` (a lighter touch on night sets) |
 | `"grain": true` | episode | soft film grain, added when the video is encoded (and on stills) |
+| `"colour": "match"` | episode | (default with `act`; `"off"` to stop) sets lit the same way are nudged to the same colour |
+| `"side_walk": false` | episode | (default on with `act`) walks stay front-on |
+| `"pose": {"pip": "ground"}` | beat | a drawn pose for the whole beat: `ground`, `beanbag`, `kneel`, `climb` |
+| `"silhouette": true` | beat | the cast as dark shapes against a sunset |
+| line `"do"`: `kneel`, `trip`, `chin`, `cannonball`, `climb`, `runto`, `ground`, `beanbag` | line | the drawn poses and moves (`poses.py`) |
 | `"seats": {"bash": "sofa_l"}` | beat | named spots per painted set: `sofa_l`, `sofa_r`, `beanbag` (apartment), `tower` (lake), `step` (stoop), `edge` (hall), or 0–3 standing |
 | `"enter": {"bash": "left"}`, `"exit": {"rocco": "right"}` | beat | walk on/off with steps, arm swing, footsteps, footprints on sand |
 | `"exit_sfx": "door"` | beat | a sound as the walk off ends |

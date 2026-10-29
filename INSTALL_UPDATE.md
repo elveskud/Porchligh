@@ -148,6 +148,10 @@ Then send me the last 20 lines the Terminal printed, and I'll fix it.
 
 ---
 
-**Not in this update yet** (next on the list): the approved side-view walks inside episodes, the new poses
-(beanbag, cross-legged, kneeling, tripping, chin in paws) and the new paw shapes. Right now they only exist as the
-reference sheets in `Blender/characters/refs/side_*.png`.
+**New in this update:** with `"act": "auto"`, characters walk and run in side view; drawn poses (sitting on the
+ground, kneeling, lying on the beanbag, chin in paws, tripping, cannonball, climbing, running at the camera); new paw
+shapes; footprints; storm flicker; colour match; `[silhouette]`; match cuts. How to write them in a script:
+`WRITING_AN_EPISODE.md`. Reference sheets: `Blender/characters/refs/side_*.png`, `poses_*.png`, `hands.png`.
+
+**Still waiting on art:** doors that open, plants that move when someone passes (the door paintings A2/A3 and the
+F cut-outs in `GEMINI_PROMPTS.md`).

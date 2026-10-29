@@ -35,15 +35,18 @@ ROCCO: ...
 | `NAME (joke): words` | a punchline: snap zoom and a soft sting |
 | `NAME (to pip): words` / `(looks up)` / `(looks at bash)` / `(reaction rocco)` | who it's said to, where they look, whose face we cut to after |
 | `NAME: ...` | a silent beat: acted (face, look, move), not voiced |
-| `NAME enters left.` / `NAME exits right.` | walking on and off |
+| `NAME enters left.` / `NAME exits right.` / `runs in` / `sneaks off` | walking on and off, seen from the side with a real walk or run |
 | `NAME walks to the step.` | walking to another spot mid-scene |
 | `NAME sits on the sofa l.` / `stands at the tower.` | where they are (otherwise sitters take free seats on their own) |
 | `NAME is asleep.` / `NAME carries a phone.` | asleep for the scene / a phone, flashlight or cup in the paw (a phone is held up and tapped between lines) |
 | `RIOT high-fives BASH.` / `bumps` / `hugs` / `puts a paw on PIP's shoulder` | two of them touching: they step to arm's length, the camera takes a two-shot |
 | `BASH picks up the cup.` / `puts down` / `throws it at the lake` / `drops` / `sips` | props: thrown things fly, bounce and splash |
+| `PIP sits on the ground.` / `ROCCO lies on the beanbag.` | a drawn pose held for the scene |
+| `BASH kneels.` / `RIOT trips.` / `RIOT jumps into the lake.` / `PIP climbs.` / `BASH runs at the camera.` / `ROCCO rests his chin in his paws.` | drawn poses and moves (a cannonball into the lake splashes, and he's under) |
 | `[text: ...]` `[card: Later that night.]` `[sfx: door]` | on-screen text, a time card, a sound |
 | `[storm]` `[fade]` `[whip]` `[letterbox]` `[mood: tense]` `[hold: 2]` | weather, transitions (fade through black, whip pan), the scene's mood (`normal`, `tense` tilts the camera, `party`, `soft` = piano), seconds to hold at the end |
 | `[intro]` | the Porchlight title with the full theme |
+| `[silhouette]` | the cast as dark shapes against the sky (sunset scenes) |
 | `[camera: close riot]` | frame the scene yourself (the engine then leaves this scene's camera alone) |
 | `[chat]` then `Riot: LIGHT'S ON` lines, then a blank line | the group chat |
 | `[game nhie: prompt \| target \| confession]` | Never Have I Ever (also `mlt: prompt \| target`, `td: dare \| player \| performance`). Real app prompts only. |

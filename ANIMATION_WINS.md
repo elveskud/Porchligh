@@ -92,11 +92,11 @@ Effort: S = under an hour, M = a few hours, L = a day or more. Items already don
 | # | Win | Effort | Status |
 |---|---|---|---|
 | 71 | 3/4 body turn (torso, legs and tail turn, not just the head) | L | done (cheap version: bodies narrow as they turn; true 3/4 drawings need new art per character, for your OK) |
-| 72 | Side-view walk cycle | L | art (a profile drawing of each character; reference sheet for your OK first) |
+| 72 | Side-view walk cycle | L | done (side views approved round 14; every walk, run and walk-to in an `act` episode plays in profile) |
 | 73 | Sit-down move (lower into the seat) | M | done (walking in to a seat sits down on arrival) |
 | 74 | Stand-up move (push up from the seat) | M | done (move `stand`; leaving a seat stands up first) |
 | 75 | Slouch pose for sitters | M | done (move `slouch`) |
-| 76 | Lying back on the beanbag | M | art (a lying-back drawing; the front view can't lie down convincingly) |
+| 76 | Lying back on the beanbag | M | done (`poses.py` "beanbag", from the Gemini pose sheets) |
 | 77 | Walk: a little squash on each footfall | S | done |
 | 78 | Walk: settle with a small overshoot when stopping | S | done |
 | 79 | Run (faster steps, lean forward) for hurried entrances | M | done (`enter: left run`, "runs in from the left") |
@@ -182,10 +182,10 @@ Effort: S = under an hour, M = a few hours, L = a day or more. Items already don
 | 147 | Soft vignette on close-ups | S | done (with close-ups) |
 | 148 | Soft bloom around lamps | S | done (lamps already glow; they breathe: 155) |
 | 149 | Night brightness floor (faces stay readable on phones) | S | done (with `act`: the set's light on faces is capped) |
-| 150 | One colour pass for the whole episode (scenes in the same light match) | M | todo |
+| 150 | One colour pass for the whole episode (scenes in the same light match) | M | done (`"colour": "match"`, on by default with `act`) |
 | 151 | Quiet, sad beats a touch less saturated | S | done (with `act`) |
 | 152 | Tense beats a touch cooler | S | done (with `act`) |
-| 153 | Silhouette option against a sunset | S | todo |
+| 153 | Silhouette option against a sunset | S | done (`[silhouette]`) |
 | 154 | Lightning flash shows the cast's silhouettes for a frame | S | no (lightning already flashes the whole frame, cast included) |
 | 155 | Lamp light pools on the floor flicker very slightly | S | done |
 | 156 | Characters further from a lamp get less of its warmth (graded light) | M | done (already: lamp warmth falls off with distance) |
@@ -200,7 +200,7 @@ Effort: S = under an hour, M = a few hours, L = a day or more. Items already don
 | 161 | Depth of field: the background softens in close-ups | M | done |
 | 162 | Rack focus between two characters | M | no (characters are flat cut-outs: no depth to focus between; the close-up background blur covers it) |
 | 163 | Whip-pan transition between places | S | done (`[whip]` / `"transition": "whip"`) |
-| 164 | Match cut on action between scenes | M | todo |
+| 164 | Match cut on action between scenes | M | done (automatic between two places with someone in both) |
 | 165 | 2.5D parallax: front pieces move faster than the painting | S | done (with `act`: foreground front pieces) |
 | 166 | A slight camera lag behind fast moves (handheld feel) | S | no (every camera move is already eased) |
 | 167 | Camera settles with a tiny overshoot after pushes | S | done (with `act`) |
@@ -245,3 +245,14 @@ Effort: S = under an hour, M = a few hours, L = a day or more. Items already don
 | 198 | Thumbnail picks the best reaction frame automatically | M | done |
 | 199 | A reference sheet of every move and face, regenerated in one command | S | done (`Blender --background --python characters/movesheet.py` -> refs/moves_sheet.png) |
 | 200 | `make.py --check`: script, JSON and shot list checks without voicing or rendering | S | done |
+
+## K. The big five (29 Oct, after the 200)
+| # | Win | Status |
+|---|---|---|
+| K1 | Side views of all four, walk and run cycles; every walk in an episode plays side-on with a turn at each end | done |
+| K2 | Three-quarter view | partly: the head turn and body narrowing are the 3/4; a drawn 3/4 isn't made |
+| K3 | Drawn poses: on the ground cross-legged, kneeling, lying on the beanbag, chin in paws, tripping, cannonball, climbing, running at the camera (`poses.py`, `refs/poses_*.png`) | done |
+| K4 | Paws: grab, hold (fingers round a cup or phone), four; counting to five | done |
+| K5 | Brows and lids travel to a new face over 5 frames; a sweat drop for anyone nervous or scared; blushing (already there) | done |
+| K6 | Footprints in the sand; a cannonball splash; lamps flicker in a storm | done |
+| K7 | Doors, plants that move as someone brushes past, wading | art (needs the door paintings A2/A3 and the F cut-outs) |

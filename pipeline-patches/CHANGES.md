@@ -68,4 +68,16 @@ same folders), or `git apply blender-fixes.patch` inside the Blender folder. The
   also on stills). Screenplay headers `grade:` and `grain: on`.
 - **Clothes rustle** on big moves.
 
+## The big five (side views, poses, hands, world, open wins)
+- **Side views** (`characters/profile.py`, approved): with `act`, every walk on, off and between spots is played by
+  the side view with a real walk or run cycle (feet planted, own style per character) and a quick turn at each end.
+- **Drawn poses** (`characters/poses.py`): cross-legged on the ground, kneeling, lying back on the beanbag, chin in
+  paws, tripping, cannonball (into the lake: a splash and he's under), climbing, running at the camera.
+  A dressed copy takes over for the pose with the same face, looks, blinks and lip sync.
+- **Paws:** grab, hold (fingers round a carried cup, phone or flashlight), four; counting goes to five.
+- **Faces:** brows and lids travel to a new expression over 5 frames; nervous and scared lines get a sweat drop.
+- **World:** footprints in the sand, lamps flicker in storms.
+- **Colour match** across sets in the same light, **`[silhouette]`** at sunset, **match cuts** between places.
+- Reference sheets: `refs/side_*.png`, `refs/poses_*.png`, `refs/hands.png` (`sideref.py`, `poseref.py`, `handref.py`).
+
 Everything new is opt-in from the episode JSON; the Shorts and Episode 1 behave as before (apart from the fixes).
